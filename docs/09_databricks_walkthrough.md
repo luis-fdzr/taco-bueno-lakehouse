@@ -10,6 +10,20 @@ databricks bundle open taco_bueno_lakeflow -t dev    # opens the pipeline in the
 databricks bundle open daily_orchestration_job -t dev
 ```
 
+## 0. The dashboard: *Dashboards > [dev <user>] Taco Bueno - Sales, Sports and Forecasts*
+
+The fastest way to see the results. Five pages (tabs at the top):
+
+| Page | What it shows |
+|---|---|
+| Overview | totals, net sales per store-day by month, YoY change of sales, traffic and ticket, channel mix, markets |
+| Calendar & sports | weekday and daypart patterns, holiday lift, sports lift (all days and weekday vs weekend) |
+| Forecasts | expected tickets and net sales for the next 95 days, actual vs forecast, strong and weak dates, top-product forecasts, backtest accuracy, price-sensitivity scenario |
+| Stores & products | store segments, segments by market, top products, price-increase waves |
+| Data quality | reconciliation, quarantine, missing days, expectations of the latest update, quality-gate results |
+
+It is deployed by the bundle (`resources/dashboards/taco_bueno_dashboard.yml`) and generated from `tools/dashboard/build_dashboard.py`. To change it, edit the generator, run it, and deploy again. Edits made in the UI are lost on the next deploy unless you export them with `databricks bundle generate dashboard --resource taco_bueno_overview`. Queries run on the SQL warehouse; the first load after a pause takes longer while the warehouse starts.
+
 ## 1. The code
 
 * **Deployed copy (read-only):** *Workspace > Users > <you> > .bundle > taco_bueno_lakehouse > dev > files*. The pipeline runs the files under `src/transformations`. `src/ml/*.py` and `src/quality/data_quality_gate.py` open as notebooks.

@@ -104,7 +104,7 @@ Everything is in the `workspace` catalog: pipeline tables in schema `taco_bueno`
 | 6. Gold | Silver | Store-day facts with calendar and sports context and baselines; product-day demand; price history; event impact; KPIs; quality scorecard; streaming ledger | `mv_daily_store_sales` (63,868 store-days) and the other gold tables |
 | 7. Gate | Gold + event log | Error-level checks stop the run before anything is published downstream | `dq_gate_results` |
 | 8. ML | Gold | Store and product segments (weekly); product, combo and market forecasts, strong dates and price sensitivity (daily) | `ml_*` tables, MLflow runs, UC models |
-| 9. Consume | Gold + ML | SQL editor, dashboards, pricing and operations decisions | [06_analysis_and_business_value.md](06_analysis_and_business_value.md) |
+| 9. Consume | Gold + ML | AI/BI dashboard deployed by the bundle (`taco_bueno_overview`), SQL editor, pricing and operations decisions | [06_analysis_and_business_value.md](06_analysis_and_business_value.md) |
 
 ## A daily run, end to end
 

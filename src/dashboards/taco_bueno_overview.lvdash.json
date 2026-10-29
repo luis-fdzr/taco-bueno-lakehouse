@@ -1,0 +1,3727 @@
+{
+  "datasets": [
+    {
+      "name": "c40505a3",
+      "displayName": "kpi_totals",
+      "queryLines": [
+        "SELECT sum(net_sales) AS net_sales, sum(tickets) AS tickets, sum(net_sales) / sum(tickets) AS avg_ticket,\n",
+        "       count(DISTINCT store_id) AS stores, count(DISTINCT business_date) AS days,\n",
+        "       sum(net_sales) / count(*) AS net_sales_per_store_day\n",
+        "FROM mv_daily_store_sales\n"
+      ]
+    },
+    {
+      "name": "28036736",
+      "displayName": "kpis_monthly",
+      "queryLines": [
+        "SELECT month, net_sales_per_store_day, tickets_per_store_day, avg_ticket\n",
+        "FROM mv_executive_kpis\n"
+      ]
+    },
+    {
+      "name": "a0ca5dce",
+      "displayName": "yoy_long",
+      "queryLines": [
+        "SELECT month, 'Net sales per store-day' AS metric, round(net_sales_per_store_day_yoy * 100, 1) AS yoy_pct FROM mv_executive_kpis WHERE yoy_comparable\n",
+        "UNION ALL SELECT month, 'Tickets per store-day', round(tickets_per_store_day_yoy * 100, 1) FROM mv_executive_kpis WHERE yoy_comparable\n",
+        "UNION ALL SELECT month, 'Average ticket', round(avg_ticket_yoy * 100, 1) FROM mv_executive_kpis WHERE yoy_comparable\n"
+      ]
+    },
+    {
+      "name": "42edb651",
+      "displayName": "channel_month",
+      "queryLines": [
+        "SELECT month, 'Drive-thru' AS channel, round(drive_thru_share * 100, 1) AS share_pct FROM mv_executive_kpis WHERE new_pos_share > 0.99\n",
+        "UNION ALL SELECT month, 'In-store', round(in_store_share * 100, 1) FROM mv_executive_kpis WHERE new_pos_share > 0.99\n",
+        "UNION ALL SELECT month, 'Delivery & digital', round(delivery_share * 100, 1) FROM mv_executive_kpis WHERE new_pos_share > 0.99\n"
+      ]
+    },
+    {
+      "name": "d9b6d3ce",
+      "displayName": "markets",
+      "queryLines": [
+        "SELECT market, count(DISTINCT store_id) AS stores, round(avg(net_sales), 0) AS net_sales_per_store_day,\n",
+        "       round(sum(net_sales) / sum(tickets), 2) AS avg_ticket, round(sum(net_sales_delivery) / sum(net_sales) * 100, 1) AS delivery_pct\n",
+        "FROM mv_daily_store_sales WHERE pos_system = 'New' GROUP BY market\n"
+      ]
+    },
+    {
+      "name": "d194b1e0",
+      "displayName": "weekday",
+      "queryLines": [
+        "SELECT concat(CAST((day_of_week + 5) % 7 + 1 AS STRING), '. ', substr(day_name, 1, 3)) AS weekday,\n",
+        "       round(avg(net_sales), 0) AS net_sales_per_store, round(avg(tickets), 1) AS tickets_per_store\n",
+        "FROM mv_daily_store_sales GROUP BY 1\n"
+      ]
+    },
+    {
+      "name": "90d041af",
+      "displayName": "daypart",
+      "queryLines": [
+        "SELECT '1. Breakfast' AS daypart, round(sum(net_sales_breakfast) / sum(net_sales) * 100, 1) AS share_pct FROM mv_daily_store_sales\n",
+        "UNION ALL SELECT '2. Lunch', round(sum(net_sales_lunch) / sum(net_sales) * 100, 1) FROM mv_daily_store_sales\n",
+        "UNION ALL SELECT '3. Afternoon', round(sum(net_sales_afternoon) / sum(net_sales) * 100, 1) FROM mv_daily_store_sales\n",
+        "UNION ALL SELECT '4. Dinner', round(sum(net_sales_dinner) / sum(net_sales) * 100, 1) FROM mv_daily_store_sales\n",
+        "UNION ALL SELECT '5. Late night', round(sum(net_sales_late_night) / sum(net_sales) * 100, 1) FROM mv_daily_store_sales\n"
+      ]
+    },
+    {
+      "name": "f31b91a7",
+      "displayName": "holidays",
+      "queryLines": [
+        "SELECT holiday_name, round((sum(net_sales) / sum(baseline_net_sales_4w) - 1) * 100, 1) AS lift_pct,\n",
+        "       count(DISTINCT business_date) AS dates\n",
+        "FROM mv_daily_store_sales\n",
+        "WHERE holiday_name IS NOT NULL AND baseline_net_sales_4w IS NOT NULL\n",
+        "GROUP BY holiday_name\n"
+      ]
+    },
+    {
+      "name": "ade38efe",
+      "displayName": "sports_all",
+      "queryLines": [
+        "SELECT exposure_type, round(incremental_lift_vs_no_game * 100, 2) AS lift_pct, store_days\n",
+        "FROM mv_event_impact\n",
+        "WHERE market = 'All markets' AND day_type = 'All days' AND exposure_type <> 'No relevant game'\n"
+      ]
+    },
+    {
+      "name": "7a3858bd",
+      "displayName": "sports_split",
+      "queryLines": [
+        "SELECT exposure_type AS `Exposure`,\n",
+        "       round(max(CASE WHEN day_type = 'Weekday' THEN incremental_lift_vs_no_game END) * 100, 1) AS `Weekday lift %`,\n",
+        "       round(max(CASE WHEN day_type = 'Weekend' THEN incremental_lift_vs_no_game END) * 100, 1) AS `Weekend lift %`,\n",
+        "       max(CASE WHEN day_type = 'All days' THEN store_days END) AS `Store-days`\n",
+        "FROM mv_event_impact\n",
+        "WHERE market = 'All markets' AND exposure_type <> 'No relevant game'\n",
+        "GROUP BY exposure_type\n",
+        "ORDER BY `Weekend lift %`\n"
+      ]
+    },
+    {
+      "name": "cea8248c",
+      "displayName": "forecast_totals",
+      "queryLines": [
+        "SELECT sum(tickets_forecast) AS tickets, sum(net_sales_forecast) AS net_sales\n",
+        "FROM ml_market_forecast\n"
+      ]
+    },
+    {
+      "name": "82596255",
+      "displayName": "chain_actual_forecast",
+      "queryLines": [
+        "SELECT date, CASE source WHEN 'actual' THEN 'Actual' ELSE 'Forecast' END AS series, tickets\n",
+        "FROM ml_strong_dates\n",
+        "WHERE scope = 'Chain' AND date >= DATE'2026-05-01'\n"
+      ]
+    },
+    {
+      "name": "859f5fc1",
+      "displayName": "strong_dates",
+      "queryLines": [
+        "SELECT date_format(date, 'yyyy-MM-dd (EEE)') AS `Date`, classification AS `Class`,\n",
+        "       round(tickets_uplift * 100, 1) AS `Expected vs baseline %`, round(tickets, 0) AS `Expected tickets`,\n",
+        "       coalesce(drivers, '') AS `Coinciding factors`\n",
+        "FROM ml_strong_dates\n",
+        "WHERE scope = 'Chain' AND source = 'forecast' AND classification <> 'Normal'\n",
+        "ORDER BY date\n"
+      ]
+    },
+    {
+      "name": "0adc2f7b",
+      "displayName": "product_forecast",
+      "queryLines": [
+        "WITH top AS (\n",
+        "  SELECT product_key, any_value(product_name) AS product\n",
+        "  FROM ml_demand_forecast GROUP BY product_key ORDER BY sum(units_forecast) DESC LIMIT 6\n",
+        ")\n",
+        "SELECT d.business_date AS date, t.product, sum(d.priced_units) AS units\n",
+        "FROM mv_daily_product_demand d JOIN top t USING (product_key)\n",
+        "WHERE d.business_date >= DATE'2026-08-01'\n",
+        "GROUP BY d.business_date, t.product\n",
+        "UNION ALL\n",
+        "SELECT f.forecast_date, t.product, f.units_forecast\n",
+        "FROM ml_demand_forecast f JOIN top t USING (product_key)\n"
+      ]
+    },
+    {
+      "name": "62e960e3",
+      "displayName": "accuracy",
+      "queryLines": [
+        "SELECT CASE series_type WHEN 'product_units' THEN 'Products and combos (units)'\n",
+        "                        WHEN 'tickets_per_store' THEN 'Tickets per store, by market'\n",
+        "                        ELSE 'Net sales per store, by market' END AS `Forecast`,\n",
+        "       count(DISTINCT series_key) AS `Series`,\n",
+        "       round(sum(abs(actual - forecast)) / sum(actual) * 100, 1) AS `Forecast WAPE %`,\n",
+        "       round(sum(abs(actual - baseline)) / sum(actual) * 100, 1) AS `Seasonal naive WAPE %`\n",
+        "FROM ml_forecast_backtest\n",
+        "GROUP BY series_type\n"
+      ]
+    },
+    {
+      "name": "7fe2d9f0",
+      "displayName": "price_sensitivity",
+      "queryLines": [
+        "SELECT product_name AS `Product`, product_role AS `Type`, round(current_price, 2) AS `Current price`,\n",
+        "       round(units_change_pct * 100, 1) AS `Units change at +5% price, %`, round(implied_elasticity, 2) AS `Implied elasticity`\n",
+        "FROM ml_price_sensitivity\n",
+        "ORDER BY implied_elasticity\n"
+      ]
+    },
+    {
+      "name": "00528ccf",
+      "displayName": "segments",
+      "queryLines": [
+        "SELECT segment_name AS `Segment`, stores AS `Stores`, round(avg_daily_net_sales, 0) AS `Net sales per day`,\n",
+        "       round(avg_ticket, 2) AS `Avg ticket`, round(delivery_share * 100, 1) AS `Delivery %`,\n",
+        "       round(drive_thru_share * 100, 1) AS `Drive-thru %`, round(lunch_share * 100, 1) AS `Lunch %`,\n",
+        "       round(weekend_index, 2) AS `Weekend index`, round(yoy_growth * 100, 1) AS `YoY growth %`\n",
+        "FROM ml_store_segment_profiles\n",
+        "ORDER BY avg_daily_net_sales DESC\n"
+      ]
+    },
+    {
+      "name": "c701967b",
+      "displayName": "segments_market",
+      "queryLines": [
+        "SELECT market, segment_name AS segment, count(*) AS stores\n",
+        "FROM ml_store_segments GROUP BY market, segment_name\n"
+      ]
+    },
+    {
+      "name": "047f342a",
+      "displayName": "top_products",
+      "queryLines": [
+        "SELECT product_name, round(sales_amount, 0) AS sales\n",
+        "FROM mv_dim_product\n",
+        "WHERE product_role IN ('Menu item', 'Bundle')\n",
+        "ORDER BY sales_amount DESC LIMIT 15\n"
+      ]
+    },
+    {
+      "name": "e412580b",
+      "displayName": "price_waves",
+      "queryLines": [
+        "SELECT month, count_if(price_change_pct > 0) AS increases\n",
+        "FROM mv_product_price_history\n",
+        "WHERE prev_modal_price IS NOT NULL\n",
+        "GROUP BY month\n"
+      ]
+    },
+    {
+      "name": "a15d5a03",
+      "displayName": "dq_totals",
+      "queryLines": [
+        "SELECT round(sum(reconciliation_rate * tickets) / sum(tickets) * 100, 2) AS reconciled_pct,\n",
+        "       sum(quarantined_rows) AS quarantined_rows,\n",
+        "       count_if(day_status = 'Missing file') AS missing_days,\n",
+        "       sum(reused_check_numbers) AS reused_check_numbers,\n",
+        "       (SELECT count(*) FROM mv_dim_store WHERE has_sales AND latitude IS NULL) AS stores_without_location\n",
+        "FROM mv_data_quality_daily\n"
+      ]
+    },
+    {
+      "name": "8b51bfd7",
+      "displayName": "dq_daily",
+      "queryLines": [
+        "SELECT business_date, day_status,\n",
+        "       CASE WHEN day_status = 'Complete' THEN tickets ELSE 30000 END AS bar_height\n",
+        "FROM mv_data_quality_daily\n"
+      ]
+    },
+    {
+      "name": "66a77161",
+      "displayName": "dq_issues",
+      "queryLines": [
+        "SELECT date_format(business_date, 'yyyy-MM-dd (EEE)') AS `Business date`, day_status AS `Status`,\n",
+        "       coalesce(holiday_name, '') AS `Holiday`, files AS `Files`, tickets AS `Tickets`,\n",
+        "       stores_reporting AS `Stores reporting`, stores_expected AS `Stores expected`\n",
+        "FROM mv_data_quality_daily\n",
+        "WHERE day_status <> 'Complete'\n",
+        "ORDER BY business_date\n"
+      ]
+    },
+    {
+      "name": "38a43104",
+      "displayName": "expectations",
+      "queryLines": [
+        "WITH exp AS (\n",
+        "  SELECT origin.update_id AS update_id, timestamp,\n",
+        "         explode(from_json(details:flow_progress.data_quality.expectations,\n",
+        "                 'array<struct<name:string,dataset:string,passed_records:bigint,failed_records:bigint>>')) AS e\n",
+        "  FROM pipeline_event_log\n",
+        "  WHERE event_type = 'flow_progress' AND details:flow_progress.data_quality IS NOT NULL\n",
+        "),\n",
+        "per_update AS (\n",
+        "  SELECT e.dataset AS dataset, e.name AS expectation, update_id, max(timestamp) AS ts,\n",
+        "         sum(e.passed_records) AS passed, sum(e.failed_records) AS failed\n",
+        "  FROM exp GROUP BY e.dataset, e.name, update_id\n",
+        "),\n",
+        "latest AS (\n",
+        "  SELECT *, row_number() OVER (PARTITION BY dataset, expectation ORDER BY ts DESC) AS rn FROM per_update\n",
+        ")\n",
+        "SELECT regexp_extract(dataset, '[^.]+$', 0) AS `Table`, expectation AS `Expectation`,\n",
+        "       passed AS `Passed`, failed AS `Failed`, round(failed / nullif(passed + failed, 0) * 100, 3) AS `Failed %`\n",
+        "FROM latest WHERE rn = 1\n",
+        "ORDER BY failed DESC, `Table`\n"
+      ]
+    },
+    {
+      "name": "05fc1488",
+      "displayName": "dq_gate",
+      "queryLines": [
+        "SELECT date_format(run_ts, 'yyyy-MM-dd HH:mm') AS `Run (UTC)`, check_name AS `Check`, severity AS `Severity`,\n",
+        "       status AS `Status`, round(value, 4) AS `Value`, threshold AS `Threshold`\n",
+        "FROM dq_gate_results\n",
+        "QUALIFY dense_rank() OVER (ORDER BY run_ts DESC) = 1\n",
+        "ORDER BY CASE status WHEN 'FAIL' THEN 0 WHEN 'WARN' THEN 1 ELSE 2 END, check_name\n"
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "name": "babd2d63",
+      "displayName": "Overview",
+      "layout": [
+        {
+          "widget": {
+            "name": "f1a63b98",
+            "textbox_spec": "# Taco Bueno: sales overview\nNet sales = after discounts, before tax \u00b7 business days Jan 22, 2025 to Sep 27, 2026 \u00b7 source: Lakeflow pipeline gold tables"
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 6,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "ac8a0018",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "c40505a3",
+                  "fields": [
+                    {
+                      "name": "sum(net_sales)",
+                      "expression": "SUM(`net_sales`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "sum(net_sales)",
+                  "displayName": "Net sales ($)"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Net sales ($)"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 2,
+            "width": 1,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "d88ed0da",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "c40505a3",
+                  "fields": [
+                    {
+                      "name": "sum(tickets)",
+                      "expression": "SUM(`tickets`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "sum(tickets)",
+                  "displayName": "Tickets"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Tickets"
+              }
+            }
+          },
+          "position": {
+            "x": 1,
+            "y": 2,
+            "width": 1,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "ffe81fa6",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "c40505a3",
+                  "fields": [
+                    {
+                      "name": "sum(avg_ticket)",
+                      "expression": "SUM(`avg_ticket`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "sum(avg_ticket)",
+                  "displayName": "Average ticket ($)"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Average ticket ($)"
+              }
+            }
+          },
+          "position": {
+            "x": 2,
+            "y": 2,
+            "width": 1,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "a679bece",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "c40505a3",
+                  "fields": [
+                    {
+                      "name": "sum(net_sales_per_store_day)",
+                      "expression": "SUM(`net_sales_per_store_day`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "sum(net_sales_per_store_day)",
+                  "displayName": "Net sales per store-day ($)"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Net sales per store-day ($)"
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 2,
+            "width": 1,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "e7c34a9d",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "c40505a3",
+                  "fields": [
+                    {
+                      "name": "sum(stores)",
+                      "expression": "SUM(`stores`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "sum(stores)",
+                  "displayName": "Stores"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Stores"
+              }
+            }
+          },
+          "position": {
+            "x": 4,
+            "y": 2,
+            "width": 1,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "5c8da9f3",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "c40505a3",
+                  "fields": [
+                    {
+                      "name": "sum(days)",
+                      "expression": "SUM(`days`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "sum(days)",
+                  "displayName": "Days with data"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Days with data"
+              }
+            }
+          },
+          "position": {
+            "x": 5,
+            "y": 2,
+            "width": 1,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "2d6887eb",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "28036736",
+                  "fields": [
+                    {
+                      "name": "month",
+                      "expression": "`month`"
+                    },
+                    {
+                      "name": "sum(net_sales_per_store_day)",
+                      "expression": "SUM(`net_sales_per_store_day`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "line",
+              "encodings": {
+                "x": {
+                  "fieldName": "month",
+                  "scale": {
+                    "type": "temporal"
+                  },
+                  "displayName": "Month",
+                  "axis": {
+                    "title": "Month"
+                  }
+                },
+                "y": {
+                  "fieldName": "sum(net_sales_per_store_day)",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Net sales per store-day ($)",
+                  "axis": {
+                    "title": "Net sales per store-day ($)"
+                  }
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Net sales per store-day, by month"
+              },
+              "mark": {
+                "colors": [
+                  "#2a78d6",
+                  "#eb6834",
+                  "#1baf7a",
+                  "#eda100",
+                  "#e87ba4",
+                  "#008300",
+                  "#4a3aa7",
+                  "#e34948"
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 4,
+            "width": 3,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "420c750a",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "a0ca5dce",
+                  "fields": [
+                    {
+                      "name": "month",
+                      "expression": "`month`"
+                    },
+                    {
+                      "name": "sum(yoy_pct)",
+                      "expression": "SUM(`yoy_pct`)"
+                    },
+                    {
+                      "name": "metric",
+                      "expression": "`metric`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "line",
+              "encodings": {
+                "x": {
+                  "fieldName": "month",
+                  "scale": {
+                    "type": "temporal"
+                  },
+                  "displayName": "Month",
+                  "axis": {
+                    "title": "Month"
+                  }
+                },
+                "y": {
+                  "fieldName": "sum(yoy_pct)",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Change vs same month last year (%)",
+                  "axis": {
+                    "title": "Change vs same month last year (%)"
+                  }
+                },
+                "color": {
+                  "fieldName": "metric",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Metric"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Year-over-year change (comparable months)",
+                "showDescription": true,
+                "description": "Traffic falls every month since March 2026; price increases lift the average ticket."
+              },
+              "mark": {
+                "colors": [
+                  "#2a78d6",
+                  "#eb6834",
+                  "#1baf7a",
+                  "#eda100",
+                  "#e87ba4",
+                  "#008300",
+                  "#4a3aa7",
+                  "#e34948"
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 4,
+            "width": 3,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "5934c930",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "42edb651",
+                  "fields": [
+                    {
+                      "name": "month",
+                      "expression": "`month`"
+                    },
+                    {
+                      "name": "sum(share_pct)",
+                      "expression": "SUM(`share_pct`)"
+                    },
+                    {
+                      "name": "channel",
+                      "expression": "`channel`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "month",
+                  "scale": {
+                    "type": "temporal"
+                  },
+                  "displayName": "Month",
+                  "axis": {
+                    "title": "Month"
+                  }
+                },
+                "y": {
+                  "fieldName": "sum(share_pct)",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Share of net sales (%)",
+                  "axis": {
+                    "title": "Share of net sales (%)"
+                  }
+                },
+                "color": {
+                  "fieldName": "channel",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Channel"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Channel mix of net sales (new POS)"
+              },
+              "mark": {
+                "colors": [
+                  "#2a78d6",
+                  "#eb6834",
+                  "#1baf7a",
+                  "#eda100",
+                  "#e87ba4",
+                  "#008300",
+                  "#4a3aa7",
+                  "#e34948"
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 10,
+            "width": 3,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "0a11dd1a",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "d9b6d3ce",
+                  "fields": [
+                    {
+                      "name": "market",
+                      "expression": "`market`"
+                    },
+                    {
+                      "name": "sum(net_sales_per_store_day)",
+                      "expression": "SUM(`net_sales_per_store_day`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "market",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Market",
+                  "axis": {
+                    "title": "Market"
+                  }
+                },
+                "y": {
+                  "fieldName": "sum(net_sales_per_store_day)",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Net sales per store-day ($)",
+                  "axis": {
+                    "title": "Net sales per store-day ($)"
+                  }
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Net sales per store-day by market (new POS)"
+              },
+              "mark": {
+                "colors": [
+                  "#2a78d6",
+                  "#eb6834",
+                  "#1baf7a",
+                  "#eda100",
+                  "#e87ba4",
+                  "#008300",
+                  "#4a3aa7",
+                  "#e34948"
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 10,
+            "width": 3,
+            "height": 6
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS"
+    },
+    {
+      "name": "6070e074",
+      "displayName": "Calendar & sports",
+      "layout": [
+        {
+          "widget": {
+            "name": "f98429d0",
+            "textbox_spec": "# Calendar and sports\nLift = net sales vs the same weekday of the 4 previous weeks. Sports lift is net of the lift on days without a relevant game."
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 6,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "2e9c1845",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "d194b1e0",
+                  "fields": [
+                    {
+                      "name": "weekday",
+                      "expression": "`weekday`"
+                    },
+                    {
+                      "name": "sum(net_sales_per_store)",
+                      "expression": "SUM(`net_sales_per_store`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "weekday",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Weekday",
+                  "axis": {
+                    "title": "Weekday"
+                  }
+                },
+                "y": {
+                  "fieldName": "sum(net_sales_per_store)",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Net sales per store ($)",
+                  "axis": {
+                    "title": "Net sales per store ($)"
+                  }
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Net sales per store by weekday"
+              },
+              "mark": {
+                "colors": [
+                  "#2a78d6",
+                  "#eb6834",
+                  "#1baf7a",
+                  "#eda100",
+                  "#e87ba4",
+                  "#008300",
+                  "#4a3aa7",
+                  "#e34948"
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 2,
+            "width": 3,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "cbe02963",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "90d041af",
+                  "fields": [
+                    {
+                      "name": "daypart",
+                      "expression": "`daypart`"
+                    },
+                    {
+                      "name": "sum(share_pct)",
+                      "expression": "SUM(`share_pct`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "daypart",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Daypart",
+                  "axis": {
+                    "title": "Daypart"
+                  }
+                },
+                "y": {
+                  "fieldName": "sum(share_pct)",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Share (%)",
+                  "axis": {
+                    "title": "Share (%)"
+                  }
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Share of net sales by daypart"
+              },
+              "mark": {
+                "colors": [
+                  "#2a78d6",
+                  "#eb6834",
+                  "#1baf7a",
+                  "#eda100",
+                  "#e87ba4",
+                  "#008300",
+                  "#4a3aa7",
+                  "#e34948"
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 2,
+            "width": 3,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "3c0c18da",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "f31b91a7",
+                  "fields": [
+                    {
+                      "name": "holiday_name",
+                      "expression": "`holiday_name`"
+                    },
+                    {
+                      "name": "sum(lift_pct)",
+                      "expression": "SUM(`lift_pct`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "sum(lift_pct)",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Lift (%)",
+                  "axis": {
+                    "title": "Lift (%)"
+                  }
+                },
+                "y": {
+                  "fieldName": "holiday_name",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Holiday",
+                  "axis": {
+                    "title": "Holiday"
+                  }
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Holiday lift vs baseline",
+                "showDescription": true,
+                "description": "Each holiday appears once or twice in the data; read small differences as indicative."
+              },
+              "mark": {
+                "colors": [
+                  "#2a78d6",
+                  "#eb6834",
+                  "#1baf7a",
+                  "#eda100",
+                  "#e87ba4",
+                  "#008300",
+                  "#4a3aa7",
+                  "#e34948"
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 8,
+            "width": 3,
+            "height": 9
+          }
+        },
+        {
+          "widget": {
+            "name": "724a2b7e",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ade38efe",
+                  "fields": [
+                    {
+                      "name": "exposure_type",
+                      "expression": "`exposure_type`"
+                    },
+                    {
+                      "name": "sum(lift_pct)",
+                      "expression": "SUM(`lift_pct`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "sum(lift_pct)",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Incremental lift (%)",
+                  "axis": {
+                    "title": "Incremental lift (%)"
+                  }
+                },
+                "y": {
+                  "fieldName": "exposure_type",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Exposure",
+                  "axis": {
+                    "title": "Exposure"
+                  }
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Sports: incremental lift on game days"
+              },
+              "mark": {
+                "colors": [
+                  "#2a78d6",
+                  "#eb6834",
+                  "#1baf7a",
+                  "#eda100",
+                  "#e87ba4",
+                  "#008300",
+                  "#4a3aa7",
+                  "#e34948"
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 8,
+            "width": 3,
+            "height": 9
+          }
+        },
+        {
+          "widget": {
+            "name": "7888a78e",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "7a3858bd",
+                  "fields": [
+                    {
+                      "name": "Exposure",
+                      "expression": "`Exposure`"
+                    },
+                    {
+                      "name": "Weekday lift %",
+                      "expression": "`Weekday lift %`"
+                    },
+                    {
+                      "name": "Weekend lift %",
+                      "expression": "`Weekend lift %`"
+                    },
+                    {
+                      "name": "Store-days",
+                      "expression": "`Store-days`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 1,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "allowHTML": false,
+                    "allowSearch": false,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "highlightLinks": false,
+                    "imageHeight": "",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "linkOpenInNewTab": true,
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "preserveWhitespace": false,
+                    "useMonospaceFont": false,
+                    "visible": true,
+                    "fieldName": "Exposure",
+                    "displayName": "Exposure",
+                    "title": "Exposure",
+                    "order": 100000,
+                    "type": "string",
+                    "displayAs": "string",
+                    "alignContent": "left"
+                  },
+                  {
+                    "allowHTML": false,
+                    "allowSearch": false,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "highlightLinks": false,
+                    "imageHeight": "",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "linkOpenInNewTab": true,
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "preserveWhitespace": false,
+                    "useMonospaceFont": false,
+                    "visible": true,
+                    "fieldName": "Weekday lift %",
+                    "displayName": "Weekday lift %",
+                    "title": "Weekday lift %",
+                    "order": 100001,
+                    "type": "float",
+                    "displayAs": "number",
+                    "alignContent": "right",
+                    "numberFormat": "0,0.0"
+                  },
+                  {
+                    "allowHTML": false,
+                    "allowSearch": false,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "highlightLinks": false,
+                    "imageHeight": "",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "linkOpenInNewTab": true,
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "preserveWhitespace": false,
+                    "useMonospaceFont": false,
+                    "visible": true,
+                    "fieldName": "Weekend lift %",
+                    "displayName": "Weekend lift %",
+                    "title": "Weekend lift %",
+                    "order": 100002,
+                    "type": "float",
+                    "displayAs": "number",
+                    "alignContent": "right",
+                    "numberFormat": "0,0.0"
+                  },
+                  {
+                    "allowHTML": false,
+                    "allowSearch": false,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "highlightLinks": false,
+                    "imageHeight": "",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "linkOpenInNewTab": true,
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "preserveWhitespace": false,
+                    "useMonospaceFont": false,
+                    "visible": true,
+                    "fieldName": "Store-days",
+                    "displayName": "Store-days",
+                    "title": "Store-days",
+                    "order": 100003,
+                    "type": "integer",
+                    "displayAs": "number",
+                    "alignContent": "right",
+                    "numberFormat": "0,0"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Sports lift: weekdays vs weekends",
+                "showDescription": true,
+                "description": "Big weekend games pull customers away from restaurants; weekday games add a little."
+              },
+              "allowHTMLByDefault": false,
+              "condensed": true,
+              "invisibleColumns": [],
+              "itemsPerPage": 25,
+              "paginationSize": "default",
+              "withRowNumber": false
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 17,
+            "width": 6,
+            "height": 5
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS"
+    },
+    {
+      "name": "40234169",
+      "displayName": "Forecasts",
+      "layout": [
+        {
+          "widget": {
+            "name": "19ca8254",
+            "textbox_spec": "# Forecasts and strong dates\nModels trained on data to Sep 27, 2026; forecast horizon Sep 28 to Dec 31, 2026. 'Coinciding factors' are what falls on that day, not proven causes. Christmas week 2025 is missing from the data, so Dec 24-25 forecasts need a manual check."
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 6,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "f8dc3555",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "cea8248c",
+                  "fields": [
+                    {
+                      "name": "sum(tickets)",
+                      "expression": "SUM(`tickets`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "sum(tickets)",
+                  "displayName": "Expected tickets (next 95 days)"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Expected tickets (next 95 days)"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 2,
+            "width": 3,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "fb7edd42",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "cea8248c",
+                  "fields": [
+                    {
+                      "name": "sum(net_sales)",
+                      "expression": "SUM(`net_sales`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "sum(net_sales)",
+                  "displayName": "Expected net sales, $ (next 95 days)"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Expected net sales, $ (next 95 days)"
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 2,
+            "width": 3,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "5dfec80d",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "82596255",
+                  "fields": [
+                    {
+                      "name": "date",
+                      "expression": "`date`"
+                    },
+                    {
+                      "name": "sum(tickets)",
+                      "expression": "SUM(`tickets`)"
+                    },
+                    {
+                      "name": "series",
+                      "expression": "`series`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "line",
+              "encodings": {
+                "x": {
+                  "fieldName": "date",
+                  "scale": {
+                    "type": "temporal"
+                  },
+                  "displayName": "Date",
+                  "axis": {
+                    "title": "Date"
+                  }
+                },
+                "y": {
+                  "fieldName": "sum(tickets)",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Tickets",
+                  "axis": {
+                    "title": "Tickets"
+                  }
+                },
+                "color": {
+                  "fieldName": "series",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Series"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Chain daily tickets: actual and forecast"
+              },
+              "mark": {
+                "colors": [
+                  "#2a78d6",
+                  "#eb6834",
+                  "#1baf7a",
+                  "#eda100",
+                  "#e87ba4",
+                  "#008300",
+                  "#4a3aa7",
+                  "#e34948"
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 4,
+            "width": 6,
+            "height": 7
+          }
+        },
+        {
+          "widget": {
+            "name": "f205e841",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "859f5fc1",
+                  "fields": [
+                    {
+                      "name": "Date",
+                      "expression": "`Date`"
+                    },
+                    {
+                      "name": "Class",
+                      "expression": "`Class`"
+                    },
+                    {
+                      "name": "Expected vs baseline %",
+                      "expression": "`Expected vs baseline %`"
+                    },
+                    {
+                      "name": "Expected tickets",
+                      "expression": "`Expected tickets`"
+                    },
+                    {
+                      "name": "Coinciding factors",
+                      "expression": "`Coinciding factors`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 1,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "allowHTML": false,
+                    "allowSearch": false,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "highlightLinks": false,
+                    "imageHeight": "",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "linkOpenInNewTab": true,
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "preserveWhitespace": false,
+                    "useMonospaceFont": false,
+                    "visible": true,
+                    "fieldName": "Date",
+                    "displayName": "Date",
+                    "title": "Date",
+                    "order": 100000,
+                    "type": "string",
+                    "displayAs": "string",
+                    "alignContent": "left"
+                  },
+                  {
+                    "allowHTML": false,
+                    "allowSearch": false,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "highlightLinks": false,
+                    "imageHeight": "",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "linkOpenInNewTab": true,
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "preserveWhitespace": false,
+                    "useMonospaceFont": false,
+                    "visible": true,
+                    "fieldName": "Class",
+                    "displayName": "Class",
+                    "title": "Class",
+                    "order": 100001,
+                    "type": "string",
+                    "displayAs": "string",
+                    "alignContent": "left"
+                  },
+                  {
+                    "allowHTML": false,
+                    "allowSearch": false,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "highlightLinks": false,
+                    "imageHeight": "",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "linkOpenInNewTab": true,
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "preserveWhitespace": false,
+                    "useMonospaceFont": false,
+                    "visible": true,
+                    "fieldName": "Expected vs baseline %",
+                    "displayName": "Expected vs baseline %",
+                    "title": "Expected vs baseline %",
+                    "order": 100002,
+                    "type": "float",
+                    "displayAs": "number",
+                    "alignContent": "right",
+                    "numberFormat": "0,0.0"
+                  },
+                  {
+                    "allowHTML": false,
+                    "allowSearch": false,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "highlightLinks": false,
+                    "imageHeight": "",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "linkOpenInNewTab": true,
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "preserveWhitespace": false,
+                    "useMonospaceFont": false,
+                    "visible": true,
+                    "fieldName": "Expected tickets",
+                    "displayName": "Expected tickets",
+                    "title": "Expected tickets",
+                    "order": 100003,
+                    "type": "integer",
+                    "displayAs": "number",
+                    "alignContent": "right",
+                    "numberFormat": "0,0"
+                  },
+                  {
+                    "allowHTML": false,
+                    "allowSearch": false,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "highlightLinks": false,
+                    "imageHeight": "",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "linkOpenInNewTab": true,
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "preserveWhitespace": false,
+                    "useMonospaceFont": false,
+                    "visible": true,
+                    "fieldName": "Coinciding factors",
+                    "displayName": "Coinciding factors",
+                    "title": "Coinciding factors",
+                    "order": 100004,
+                    "type": "string",
+                    "displayAs": "string",
+                    "alignContent": "left"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Strong and weak dates ahead (chain)"
+              },
+              "allowHTMLByDefault": false,
+              "condensed": true,
+              "invisibleColumns": [],
+              "itemsPerPage": 25,
+              "paginationSize": "default",
+              "withRowNumber": false
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 11,
+            "width": 6,
+            "height": 5
+          }
+        },
+        {
+          "widget": {
+            "name": "e47e5d54",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "0adc2f7b",
+                  "fields": [
+                    {
+                      "name": "date",
+                      "expression": "`date`"
+                    },
+                    {
+                      "name": "sum(units)",
+                      "expression": "SUM(`units`)"
+                    },
+                    {
+                      "name": "product",
+                      "expression": "`product`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "line",
+              "encodings": {
+                "x": {
+                  "fieldName": "date",
+                  "scale": {
+                    "type": "temporal"
+                  },
+                  "displayName": "Date",
+                  "axis": {
+                    "title": "Date"
+                  }
+                },
+                "y": {
+                  "fieldName": "sum(units)",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Units",
+                  "axis": {
+                    "title": "Units"
+                  }
+                },
+                "color": {
+                  "fieldName": "product",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Product"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Top 6 products: daily units at menu price (actual to Sep 27, forecast after)"
+              },
+              "mark": {
+                "colors": [
+                  "#2a78d6",
+                  "#eb6834",
+                  "#1baf7a",
+                  "#eda100",
+                  "#e87ba4",
+                  "#008300",
+                  "#4a3aa7",
+                  "#e34948"
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 16,
+            "width": 6,
+            "height": 7
+          }
+        },
+        {
+          "widget": {
+            "name": "51648c3a",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "62e960e3",
+                  "fields": [
+                    {
+                      "name": "Forecast",
+                      "expression": "`Forecast`"
+                    },
+                    {
+                      "name": "Series",
+                      "expression": "`Series`"
+                    },
+                    {
+                      "name": "Forecast WAPE %",
+                      "expression": "`Forecast WAPE %`"
+                    },
+                    {
+                      "name": "Seasonal naive WAPE %",
+                      "expression": "`Seasonal naive WAPE %`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 1,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "allowHTML": false,
+                    "allowSearch": false,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "highlightLinks": false,
+                    "imageHeight": "",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "linkOpenInNewTab": true,
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "preserveWhitespace": false,
+                    "useMonospaceFont": false,
+                    "visible": true,
+                    "fieldName": "Forecast",
+                    "displayName": "Forecast",
+                    "title": "Forecast",
+                    "order": 100000,
+                    "type": "string",
+                    "displayAs": "string",
+                    "alignContent": "left"
+                  },
+                  {
+                    "allowHTML": false,
+                    "allowSearch": false,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "highlightLinks": false,
+                    "imageHeight": "",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "linkOpenInNewTab": true,
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "preserveWhitespace": false,
+                    "useMonospaceFont": false,
+                    "visible": true,
+                    "fieldName": "Series",
+                    "displayName": "Series",
+                    "title": "Series",
+                    "order": 100001,
+                    "type": "integer",
+                    "displayAs": "number",
+                    "alignContent": "right",
+                    "numberFormat": "0,0"
+                  },
+                  {
+                    "allowHTML": false,
+                    "allowSearch": false,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "highlightLinks": false,
+                    "imageHeight": "",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "linkOpenInNewTab": true,
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "preserveWhitespace": false,
+                    "useMonospaceFont": false,
+                    "visible": true,
+                    "fieldName": "Forecast WAPE %",
+                    "displayName": "Forecast WAPE %",
+                    "title": "Forecast WAPE %",
+                    "order": 100002,
+                    "type": "float",
+                    "displayAs": "number",
+                    "alignContent": "right",
+                    "numberFormat": "0,0.0"
+                  },
+                  {
+                    "allowHTML": false,
+                    "allowSearch": false,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "highlightLinks": false,
+                    "imageHeight": "",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "linkOpenInNewTab": true,
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "preserveWhitespace": false,
+                    "useMonospaceFont": false,
+                    "visible": true,
+                    "fieldName": "Seasonal naive WAPE %",
+                    "displayName": "Seasonal naive WAPE %",
+                    "title": "Seasonal naive WAPE %",
+                    "order": 100003,
+                    "type": "float",
+                    "displayAs": "number",
+                    "alignContent": "right",
+                    "numberFormat": "0,0.0"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Backtest accuracy, Jul 1 to Sep 27, 2026 (lower is better)"
+              },
+              "allowHTMLByDefault": false,
+              "condensed": true,
+              "invisibleColumns": [],
+              "itemsPerPage": 25,
+              "paginationSize": "default",
+              "withRowNumber": false
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 23,
+            "width": 3,
+            "height": 5
+          }
+        },
+        {
+          "widget": {
+            "name": "4769629d",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "7fe2d9f0",
+                  "fields": [
+                    {
+                      "name": "Product",
+                      "expression": "`Product`"
+                    },
+                    {
+                      "name": "Type",
+                      "expression": "`Type`"
+                    },
+                    {
+                      "name": "Current price",
+                      "expression": "`Current price`"
+                    },
+                    {
+                      "name": "Units change at +5% price, %",
+                      "expression": "`Units change at +5% price, %`"
+                    },
+                    {
+                      "name": "Implied elasticity",
+                      "expression": "`Implied elasticity`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 1,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "allowHTML": false,
+                    "allowSearch": false,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "highlightLinks": false,
+                    "imageHeight": "",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "linkOpenInNewTab": true,
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "preserveWhitespace": false,
+                    "useMonospaceFont": false,
+                    "visible": true,
+                    "fieldName": "Product",
+                    "displayName": "Product",
+                    "title": "Product",
+                    "order": 100000,
+                    "type": "string",
+                    "displayAs": "string",
+                    "alignContent": "left"
+                  },
+                  {
+                    "allowHTML": false,
+                    "allowSearch": false,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "highlightLinks": false,
+                    "imageHeight": "",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "linkOpenInNewTab": true,
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "preserveWhitespace": false,
+                    "useMonospaceFont": false,
+                    "visible": true,
+                    "fieldName": "Type",
+                    "displayName": "Type",
+                    "title": "Type",
+                    "order": 100001,
+                    "type": "string",
+                    "displayAs": "string",
+                    "alignContent": "left"
+                  },
+                  {
+                    "allowHTML": false,
+                    "allowSearch": false,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "highlightLinks": false,
+                    "imageHeight": "",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "linkOpenInNewTab": true,
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "preserveWhitespace": false,
+                    "useMonospaceFont": false,
+                    "visible": true,
+                    "fieldName": "Current price",
+                    "displayName": "Current price",
+                    "title": "Current price",
+                    "order": 100002,
+                    "type": "float",
+                    "displayAs": "number",
+                    "alignContent": "right",
+                    "numberFormat": "0,0.00"
+                  },
+                  {
+                    "allowHTML": false,
+                    "allowSearch": false,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "highlightLinks": false,
+                    "imageHeight": "",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "linkOpenInNewTab": true,
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "preserveWhitespace": false,
+                    "useMonospaceFont": false,
+                    "visible": true,
+                    "fieldName": "Units change at +5% price, %",
+                    "displayName": "Units change at +5% price, %",
+                    "title": "Units change at +5% price, %",
+                    "order": 100003,
+                    "type": "float",
+                    "displayAs": "number",
+                    "alignContent": "right",
+                    "numberFormat": "0,0.0"
+                  },
+                  {
+                    "allowHTML": false,
+                    "allowSearch": false,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "highlightLinks": false,
+                    "imageHeight": "",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "linkOpenInNewTab": true,
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "preserveWhitespace": false,
+                    "useMonospaceFont": false,
+                    "visible": true,
+                    "fieldName": "Implied elasticity",
+                    "displayName": "Implied elasticity",
+                    "title": "Implied elasticity",
+                    "order": 100004,
+                    "type": "float",
+                    "displayAs": "number",
+                    "alignContent": "right",
+                    "numberFormat": "0,0.00"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Price sensitivity scenario (+5% on every menu price)",
+                "showDescription": true,
+                "description": "Only value items show the expected response; core items need a controlled price test."
+              },
+              "allowHTMLByDefault": false,
+              "condensed": true,
+              "invisibleColumns": [],
+              "itemsPerPage": 25,
+              "paginationSize": "default",
+              "withRowNumber": false
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 23,
+            "width": 3,
+            "height": 5
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS"
+    },
+    {
+      "name": "dfb0c4a0",
+      "displayName": "Stores & products",
+      "layout": [
+        {
+          "widget": {
+            "name": "da4806ce",
+            "textbox_spec": "# Stores and products\nStore segments come from k-means on how each store sells (volume, basket, channels, dayparts, product mix, game-day sensitivity, growth)."
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 6,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "cb2c179d",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "00528ccf",
+                  "fields": [
+                    {
+                      "name": "Segment",
+                      "expression": "`Segment`"
+                    },
+                    {
+                      "name": "Stores",
+                      "expression": "`Stores`"
+                    },
+                    {
+                      "name": "Net sales per day",
+                      "expression": "`Net sales per day`"
+                    },
+                    {
+                      "name": "Avg ticket",
+                      "expression": "`Avg ticket`"
+                    },
+                    {
+                      "name": "Delivery %",
+                      "expression": "`Delivery %`"
+                    },
+                    {
+                      "name": "Drive-thru %",
+                      "expression": "`Drive-thru %`"
+                    },
+                    {
+                      "name": "Lunch %",
+                      "expression": "`Lunch %`"
+                    },
+                    {
+                      "name": "Weekend index",
+                      "expression": "`Weekend index`"
+                    },
+                    {
+                      "name": "YoY growth %",
+                      "expression": "`YoY growth %`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 1,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "allowHTML": false,
+                    "allowSearch": false,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "highlightLinks": false,
+                    "imageHeight": "",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "linkOpenInNewTab": true,
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "preserveWhitespace": false,
+                    "useMonospaceFont": false,
+                    "visible": true,
+                    "fieldName": "Segment",
+                    "displayName": "Segment",
+                    "title": "Segment",
+                    "order": 100000,
+                    "type": "string",
+                    "displayAs": "string",
+                    "alignContent": "left"
+                  },
+                  {
+                    "allowHTML": false,
+                    "allowSearch": false,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "highlightLinks": false,
+                    "imageHeight": "",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "linkOpenInNewTab": true,
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "preserveWhitespace": false,
+                    "useMonospaceFont": false,
+                    "visible": true,
+                    "fieldName": "Stores",
+                    "displayName": "Stores",
+                    "title": "Stores",
+                    "order": 100001,
+                    "type": "integer",
+                    "displayAs": "number",
+                    "alignContent": "right",
+                    "numberFormat": "0,0"
+                  },
+                  {
+                    "allowHTML": false,
+                    "allowSearch": false,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "highlightLinks": false,
+                    "imageHeight": "",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "linkOpenInNewTab": true,
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "preserveWhitespace": false,
+                    "useMonospaceFont": false,
+                    "visible": true,
+                    "fieldName": "Net sales per day",
+                    "displayName": "Net sales per day",
+                    "title": "Net sales per day",
+                    "order": 100002,
+                    "type": "integer",
+                    "displayAs": "number",
+                    "alignContent": "right",
+                    "numberFormat": "0,0"
+                  },
+                  {
+                    "allowHTML": false,
+                    "allowSearch": false,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "highlightLinks": false,
+                    "imageHeight": "",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "linkOpenInNewTab": true,
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "preserveWhitespace": false,
+                    "useMonospaceFont": false,
+                    "visible": true,
+                    "fieldName": "Avg ticket",
+                    "displayName": "Avg ticket",
+                    "title": "Avg ticket",
+                    "order": 100003,
+                    "type": "float",
+                    "displayAs": "number",
+                    "alignContent": "right",
+                    "numberFormat": "0,0.00"
+                  },
+                  {
+                    "allowHTML": false,
+                    "allowSearch": false,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "highlightLinks": false,
+                    "imageHeight": "",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "linkOpenInNewTab": true,
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "preserveWhitespace": false,
+                    "useMonospaceFont": false,
+                    "visible": true,
+                    "fieldName": "Delivery %",
+                    "displayName": "Delivery %",
+                    "title": "Delivery %",
+                    "order": 100004,
+                    "type": "float",
+                    "displayAs": "number",
+                    "alignContent": "right",
+                    "numberFormat": "0,0.0"
+                  },
+                  {
+                    "allowHTML": false,
+                    "allowSearch": false,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "highlightLinks": false,
+                    "imageHeight": "",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "linkOpenInNewTab": true,
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "preserveWhitespace": false,
+                    "useMonospaceFont": false,
+                    "visible": true,
+                    "fieldName": "Drive-thru %",
+                    "displayName": "Drive-thru %",
+                    "title": "Drive-thru %",
+                    "order": 100005,
+                    "type": "float",
+                    "displayAs": "number",
+                    "alignContent": "right",
+                    "numberFormat": "0,0.0"
+                  },
+                  {
+                    "allowHTML": false,
+                    "allowSearch": false,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "highlightLinks": false,
+                    "imageHeight": "",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "linkOpenInNewTab": true,
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "preserveWhitespace": false,
+                    "useMonospaceFont": false,
+                    "visible": true,
+                    "fieldName": "Lunch %",
+                    "displayName": "Lunch %",
+                    "title": "Lunch %",
+                    "order": 100006,
+                    "type": "float",
+                    "displayAs": "number",
+                    "alignContent": "right",
+                    "numberFormat": "0,0.0"
+                  },
+                  {
+                    "allowHTML": false,
+                    "allowSearch": false,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "highlightLinks": false,
+                    "imageHeight": "",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "linkOpenInNewTab": true,
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "preserveWhitespace": false,
+                    "useMonospaceFont": false,
+                    "visible": true,
+                    "fieldName": "Weekend index",
+                    "displayName": "Weekend index",
+                    "title": "Weekend index",
+                    "order": 100007,
+                    "type": "float",
+                    "displayAs": "number",
+                    "alignContent": "right",
+                    "numberFormat": "0,0.00"
+                  },
+                  {
+                    "allowHTML": false,
+                    "allowSearch": false,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "highlightLinks": false,
+                    "imageHeight": "",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "linkOpenInNewTab": true,
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "preserveWhitespace": false,
+                    "useMonospaceFont": false,
+                    "visible": true,
+                    "fieldName": "YoY growth %",
+                    "displayName": "YoY growth %",
+                    "title": "YoY growth %",
+                    "order": 100008,
+                    "type": "float",
+                    "displayAs": "number",
+                    "alignContent": "right",
+                    "numberFormat": "0,0.0"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Store segments"
+              },
+              "allowHTMLByDefault": false,
+              "condensed": true,
+              "invisibleColumns": [],
+              "itemsPerPage": 25,
+              "paginationSize": "default",
+              "withRowNumber": false
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 2,
+            "width": 6,
+            "height": 4
+          }
+        },
+        {
+          "widget": {
+            "name": "0a212b21",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "c701967b",
+                  "fields": [
+                    {
+                      "name": "market",
+                      "expression": "`market`"
+                    },
+                    {
+                      "name": "sum(stores)",
+                      "expression": "SUM(`stores`)"
+                    },
+                    {
+                      "name": "segment",
+                      "expression": "`segment`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "market",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Market",
+                  "axis": {
+                    "title": "Market"
+                  }
+                },
+                "y": {
+                  "fieldName": "sum(stores)",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Stores",
+                  "axis": {
+                    "title": "Stores"
+                  }
+                },
+                "color": {
+                  "fieldName": "segment",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Segment"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Stores by market and segment"
+              },
+              "mark": {
+                "colors": [
+                  "#2a78d6",
+                  "#eb6834",
+                  "#1baf7a",
+                  "#eda100",
+                  "#e87ba4",
+                  "#008300",
+                  "#4a3aa7",
+                  "#e34948"
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 6,
+            "width": 3,
+            "height": 8
+          }
+        },
+        {
+          "widget": {
+            "name": "02c4f0eb",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "047f342a",
+                  "fields": [
+                    {
+                      "name": "product_name",
+                      "expression": "`product_name`"
+                    },
+                    {
+                      "name": "sum(sales)",
+                      "expression": "SUM(`sales`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "sum(sales)",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Sales ($)",
+                  "axis": {
+                    "title": "Sales ($)"
+                  }
+                },
+                "y": {
+                  "fieldName": "product_name",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Product",
+                  "axis": {
+                    "title": "Product"
+                  }
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Top 15 products by sales"
+              },
+              "mark": {
+                "colors": [
+                  "#2a78d6",
+                  "#eb6834",
+                  "#1baf7a",
+                  "#eda100",
+                  "#e87ba4",
+                  "#008300",
+                  "#4a3aa7",
+                  "#e34948"
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 6,
+            "width": 3,
+            "height": 8
+          }
+        },
+        {
+          "widget": {
+            "name": "2477f8f0",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "e412580b",
+                  "fields": [
+                    {
+                      "name": "month",
+                      "expression": "`month`"
+                    },
+                    {
+                      "name": "sum(increases)",
+                      "expression": "SUM(`increases`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "month",
+                  "scale": {
+                    "type": "temporal"
+                  },
+                  "displayName": "Month",
+                  "axis": {
+                    "title": "Month"
+                  }
+                },
+                "y": {
+                  "fieldName": "sum(increases)",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Price increases",
+                  "axis": {
+                    "title": "Price increases"
+                  }
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Store-product menu price increases per month",
+                "showDescription": true,
+                "description": "Two chain-wide waves: Apr-May 2025 and Jul 2026."
+              },
+              "mark": {
+                "colors": [
+                  "#2a78d6",
+                  "#eb6834",
+                  "#1baf7a",
+                  "#eda100",
+                  "#e87ba4",
+                  "#008300",
+                  "#4a3aa7",
+                  "#e34948"
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 14,
+            "width": 6,
+            "height": 5
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS"
+    },
+    {
+      "name": "acb9650f",
+      "displayName": "Data quality",
+      "layout": [
+        {
+          "widget": {
+            "name": "4b0ffd95",
+            "textbox_spec": "# Data quality\nPipeline expectations, the daily scorecard (mv_data_quality_daily) and the quality gate of the daily job."
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 6,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "36a084f1",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "a15d5a03",
+                  "fields": [
+                    {
+                      "name": "sum(reconciled_pct)",
+                      "expression": "SUM(`reconciled_pct`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "sum(reconciled_pct)",
+                  "displayName": "Tickets reconciled (%)"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Tickets reconciled (%)"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 2,
+            "width": 1,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "991b8817",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "a15d5a03",
+                  "fields": [
+                    {
+                      "name": "sum(quarantined_rows)",
+                      "expression": "SUM(`quarantined_rows`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "sum(quarantined_rows)",
+                  "displayName": "Quarantined rows"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Quarantined rows"
+              }
+            }
+          },
+          "position": {
+            "x": 1,
+            "y": 2,
+            "width": 1,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "5ce49a5b",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "a15d5a03",
+                  "fields": [
+                    {
+                      "name": "sum(missing_days)",
+                      "expression": "SUM(`missing_days`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "sum(missing_days)",
+                  "displayName": "Missing export days"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Missing export days"
+              }
+            }
+          },
+          "position": {
+            "x": 2,
+            "y": 2,
+            "width": 1,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "82dc1c4f",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "a15d5a03",
+                  "fields": [
+                    {
+                      "name": "sum(reused_check_numbers)",
+                      "expression": "SUM(`reused_check_numbers`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "sum(reused_check_numbers)",
+                  "displayName": "Reused check numbers (fixed)"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Reused check numbers (fixed)"
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 2,
+            "width": 2,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "3b9b4f81",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "a15d5a03",
+                  "fields": [
+                    {
+                      "name": "sum(stores_without_location)",
+                      "expression": "SUM(`stores_without_location`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "sum(stores_without_location)",
+                  "displayName": "Stores without location"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Stores without location"
+              }
+            }
+          },
+          "position": {
+            "x": 5,
+            "y": 2,
+            "width": 1,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "5ae02c06",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "8b51bfd7",
+                  "fields": [
+                    {
+                      "name": "business_date",
+                      "expression": "`business_date`"
+                    },
+                    {
+                      "name": "sum(bar_height)",
+                      "expression": "SUM(`bar_height`)"
+                    },
+                    {
+                      "name": "day_status",
+                      "expression": "`day_status`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "business_date",
+                  "scale": {
+                    "type": "temporal"
+                  },
+                  "displayName": "Business date",
+                  "axis": {
+                    "title": "Business date"
+                  }
+                },
+                "y": {
+                  "fieldName": "sum(bar_height)",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Tickets",
+                  "axis": {
+                    "title": "Tickets"
+                  }
+                },
+                "color": {
+                  "fieldName": "day_status",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Day status"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Tickets per business day",
+                "showDescription": true,
+                "description": "Missing and partial days are drawn as full-height bars so the gaps are visible."
+              },
+              "mark": {
+                "colors": [
+                  "#2a78d6",
+                  "#eb6834",
+                  "#1baf7a",
+                  "#eda100",
+                  "#e87ba4",
+                  "#008300",
+                  "#4a3aa7",
+                  "#e34948"
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 4,
+            "width": 6,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "9ee9ec2f",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "66a77161",
+                  "fields": [
+                    {
+                      "name": "Business date",
+                      "expression": "`Business date`"
+                    },
+                    {
+                      "name": "Status",
+                      "expression": "`Status`"
+                    },
+                    {
+                      "name": "Holiday",
+                      "expression": "`Holiday`"
+                    },
+                    {
+                      "name": "Files",
+                      "expression": "`Files`"
+                    },
+                    {
+                      "name": "Tickets",
+                      "expression": "`Tickets`"
+                    },
+                    {
+                      "name": "Stores reporting",
+                      "expression": "`Stores reporting`"
+                    },
+                    {
+                      "name": "Stores expected",
+                      "expression": "`Stores expected`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 1,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "allowHTML": false,
+                    "allowSearch": false,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "highlightLinks": false,
+                    "imageHeight": "",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "linkOpenInNewTab": true,
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "preserveWhitespace": false,
+                    "useMonospaceFont": false,
+                    "visible": true,
+                    "fieldName": "Business date",
+                    "displayName": "Business date",
+                    "title": "Business date",
+                    "order": 100000,
+                    "type": "string",
+                    "displayAs": "string",
+                    "alignContent": "left"
+                  },
+                  {
+                    "allowHTML": false,
+                    "allowSearch": false,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "highlightLinks": false,
+                    "imageHeight": "",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "linkOpenInNewTab": true,
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "preserveWhitespace": false,
+                    "useMonospaceFont": false,
+                    "visible": true,
+                    "fieldName": "Status",
+                    "displayName": "Status",
+                    "title": "Status",
+                    "order": 100001,
+                    "type": "string",
+                    "displayAs": "string",
+                    "alignContent": "left"
+                  },
+                  {
+                    "allowHTML": false,
+                    "allowSearch": false,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "highlightLinks": false,
+                    "imageHeight": "",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "linkOpenInNewTab": true,
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "preserveWhitespace": false,
+                    "useMonospaceFont": false,
+                    "visible": true,
+                    "fieldName": "Holiday",
+                    "displayName": "Holiday",
+                    "title": "Holiday",
+                    "order": 100002,
+                    "type": "string",
+                    "displayAs": "string",
+                    "alignContent": "left"
+                  },
+                  {
+                    "allowHTML": false,
+                    "allowSearch": false,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "highlightLinks": false,
+                    "imageHeight": "",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "linkOpenInNewTab": true,
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "preserveWhitespace": false,
+                    "useMonospaceFont": false,
+                    "visible": true,
+                    "fieldName": "Files",
+                    "displayName": "Files",
+                    "title": "Files",
+                    "order": 100003,
+                    "type": "integer",
+                    "displayAs": "number",
+                    "alignContent": "right",
+                    "numberFormat": "0,0"
+                  },
+                  {
+                    "allowHTML": false,
+                    "allowSearch": false,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "highlightLinks": false,
+                    "imageHeight": "",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "linkOpenInNewTab": true,
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "preserveWhitespace": false,
+                    "useMonospaceFont": false,
+                    "visible": true,
+                    "fieldName": "Tickets",
+                    "displayName": "Tickets",
+                    "title": "Tickets",
+                    "order": 100004,
+                    "type": "integer",
+                    "displayAs": "number",
+                    "alignContent": "right",
+                    "numberFormat": "0,0"
+                  },
+                  {
+                    "allowHTML": false,
+                    "allowSearch": false,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "highlightLinks": false,
+                    "imageHeight": "",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "linkOpenInNewTab": true,
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "preserveWhitespace": false,
+                    "useMonospaceFont": false,
+                    "visible": true,
+                    "fieldName": "Stores reporting",
+                    "displayName": "Stores reporting",
+                    "title": "Stores reporting",
+                    "order": 100005,
+                    "type": "integer",
+                    "displayAs": "number",
+                    "alignContent": "right",
+                    "numberFormat": "0,0"
+                  },
+                  {
+                    "allowHTML": false,
+                    "allowSearch": false,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "highlightLinks": false,
+                    "imageHeight": "",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "linkOpenInNewTab": true,
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "preserveWhitespace": false,
+                    "useMonospaceFont": false,
+                    "visible": true,
+                    "fieldName": "Stores expected",
+                    "displayName": "Stores expected",
+                    "title": "Stores expected",
+                    "order": 100006,
+                    "type": "integer",
+                    "displayAs": "number",
+                    "alignContent": "right",
+                    "numberFormat": "0,0"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Days that are missing or partial"
+              },
+              "allowHTMLByDefault": false,
+              "condensed": true,
+              "invisibleColumns": [],
+              "itemsPerPage": 25,
+              "paginationSize": "default",
+              "withRowNumber": false
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 10,
+            "width": 3,
+            "height": 7
+          }
+        },
+        {
+          "widget": {
+            "name": "bbcd3bb3",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "38a43104",
+                  "fields": [
+                    {
+                      "name": "Table",
+                      "expression": "`Table`"
+                    },
+                    {
+                      "name": "Expectation",
+                      "expression": "`Expectation`"
+                    },
+                    {
+                      "name": "Passed",
+                      "expression": "`Passed`"
+                    },
+                    {
+                      "name": "Failed",
+                      "expression": "`Failed`"
+                    },
+                    {
+                      "name": "Failed %",
+                      "expression": "`Failed %`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 1,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "allowHTML": false,
+                    "allowSearch": false,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "highlightLinks": false,
+                    "imageHeight": "",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "linkOpenInNewTab": true,
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "preserveWhitespace": false,
+                    "useMonospaceFont": false,
+                    "visible": true,
+                    "fieldName": "Table",
+                    "displayName": "Table",
+                    "title": "Table",
+                    "order": 100000,
+                    "type": "string",
+                    "displayAs": "string",
+                    "alignContent": "left"
+                  },
+                  {
+                    "allowHTML": false,
+                    "allowSearch": false,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "highlightLinks": false,
+                    "imageHeight": "",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "linkOpenInNewTab": true,
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "preserveWhitespace": false,
+                    "useMonospaceFont": false,
+                    "visible": true,
+                    "fieldName": "Expectation",
+                    "displayName": "Expectation",
+                    "title": "Expectation",
+                    "order": 100001,
+                    "type": "string",
+                    "displayAs": "string",
+                    "alignContent": "left"
+                  },
+                  {
+                    "allowHTML": false,
+                    "allowSearch": false,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "highlightLinks": false,
+                    "imageHeight": "",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "linkOpenInNewTab": true,
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "preserveWhitespace": false,
+                    "useMonospaceFont": false,
+                    "visible": true,
+                    "fieldName": "Passed",
+                    "displayName": "Passed",
+                    "title": "Passed",
+                    "order": 100002,
+                    "type": "integer",
+                    "displayAs": "number",
+                    "alignContent": "right",
+                    "numberFormat": "0,0"
+                  },
+                  {
+                    "allowHTML": false,
+                    "allowSearch": false,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "highlightLinks": false,
+                    "imageHeight": "",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "linkOpenInNewTab": true,
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "preserveWhitespace": false,
+                    "useMonospaceFont": false,
+                    "visible": true,
+                    "fieldName": "Failed",
+                    "displayName": "Failed",
+                    "title": "Failed",
+                    "order": 100003,
+                    "type": "integer",
+                    "displayAs": "number",
+                    "alignContent": "right",
+                    "numberFormat": "0,0"
+                  },
+                  {
+                    "allowHTML": false,
+                    "allowSearch": false,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "highlightLinks": false,
+                    "imageHeight": "",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "linkOpenInNewTab": true,
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "preserveWhitespace": false,
+                    "useMonospaceFont": false,
+                    "visible": true,
+                    "fieldName": "Failed %",
+                    "displayName": "Failed %",
+                    "title": "Failed %",
+                    "order": 100004,
+                    "type": "float",
+                    "displayAs": "number",
+                    "alignContent": "right",
+                    "numberFormat": "0,0.0"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Expectations, latest pipeline update per rule"
+              },
+              "allowHTMLByDefault": false,
+              "condensed": true,
+              "invisibleColumns": [],
+              "itemsPerPage": 25,
+              "paginationSize": "default",
+              "withRowNumber": false
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 10,
+            "width": 3,
+            "height": 7
+          }
+        },
+        {
+          "widget": {
+            "name": "c2c644b4",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "05fc1488",
+                  "fields": [
+                    {
+                      "name": "Run (UTC)",
+                      "expression": "`Run (UTC)`"
+                    },
+                    {
+                      "name": "Check",
+                      "expression": "`Check`"
+                    },
+                    {
+                      "name": "Severity",
+                      "expression": "`Severity`"
+                    },
+                    {
+                      "name": "Status",
+                      "expression": "`Status`"
+                    },
+                    {
+                      "name": "Value",
+                      "expression": "`Value`"
+                    },
+                    {
+                      "name": "Threshold",
+                      "expression": "`Threshold`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 1,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "allowHTML": false,
+                    "allowSearch": false,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "highlightLinks": false,
+                    "imageHeight": "",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "linkOpenInNewTab": true,
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "preserveWhitespace": false,
+                    "useMonospaceFont": false,
+                    "visible": true,
+                    "fieldName": "Run (UTC)",
+                    "displayName": "Run (UTC)",
+                    "title": "Run (UTC)",
+                    "order": 100000,
+                    "type": "string",
+                    "displayAs": "string",
+                    "alignContent": "left"
+                  },
+                  {
+                    "allowHTML": false,
+                    "allowSearch": false,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "highlightLinks": false,
+                    "imageHeight": "",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "linkOpenInNewTab": true,
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "preserveWhitespace": false,
+                    "useMonospaceFont": false,
+                    "visible": true,
+                    "fieldName": "Check",
+                    "displayName": "Check",
+                    "title": "Check",
+                    "order": 100001,
+                    "type": "string",
+                    "displayAs": "string",
+                    "alignContent": "left"
+                  },
+                  {
+                    "allowHTML": false,
+                    "allowSearch": false,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "highlightLinks": false,
+                    "imageHeight": "",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "linkOpenInNewTab": true,
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "preserveWhitespace": false,
+                    "useMonospaceFont": false,
+                    "visible": true,
+                    "fieldName": "Severity",
+                    "displayName": "Severity",
+                    "title": "Severity",
+                    "order": 100002,
+                    "type": "string",
+                    "displayAs": "string",
+                    "alignContent": "left"
+                  },
+                  {
+                    "allowHTML": false,
+                    "allowSearch": false,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "highlightLinks": false,
+                    "imageHeight": "",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "linkOpenInNewTab": true,
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "preserveWhitespace": false,
+                    "useMonospaceFont": false,
+                    "visible": true,
+                    "fieldName": "Status",
+                    "displayName": "Status",
+                    "title": "Status",
+                    "order": 100003,
+                    "type": "string",
+                    "displayAs": "string",
+                    "alignContent": "left"
+                  },
+                  {
+                    "allowHTML": false,
+                    "allowSearch": false,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "highlightLinks": false,
+                    "imageHeight": "",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "linkOpenInNewTab": true,
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "preserveWhitespace": false,
+                    "useMonospaceFont": false,
+                    "visible": true,
+                    "fieldName": "Value",
+                    "displayName": "Value",
+                    "title": "Value",
+                    "order": 100004,
+                    "type": "float",
+                    "displayAs": "number",
+                    "alignContent": "right",
+                    "numberFormat": "0,0.0"
+                  },
+                  {
+                    "allowHTML": false,
+                    "allowSearch": false,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "highlightLinks": false,
+                    "imageHeight": "",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "linkOpenInNewTab": true,
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "preserveWhitespace": false,
+                    "useMonospaceFont": false,
+                    "visible": true,
+                    "fieldName": "Threshold",
+                    "displayName": "Threshold",
+                    "title": "Threshold",
+                    "order": 100005,
+                    "type": "string",
+                    "displayAs": "string",
+                    "alignContent": "left"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Quality gate, latest job run"
+              },
+              "allowHTMLByDefault": false,
+              "condensed": true,
+              "invisibleColumns": [],
+              "itemsPerPage": 25,
+              "paginationSize": "default",
+              "withRowNumber": false
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 17,
+            "width": 6,
+            "height": 5
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS"
+    }
+  ]
+}

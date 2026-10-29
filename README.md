@@ -31,6 +31,7 @@ End-to-end Databricks project built on 21 months of Taco Bueno point-of-sale dat
 | Analysis and business value | [docs/06_analysis_and_business_value.md](docs/06_analysis_and_business_value.md) |
 | ML models (segmentation, forecasting) | [docs/07_ml_models.md](docs/07_ml_models.md) · [`src/ml/`](src/ml) |
 | Sports-event sources and matching | [docs/08_sports_events.md](docs/08_sports_events.md) · [`src/ingestion/`](src/ingestion) |
+| AI/BI dashboard (5 pages: overview, calendar & sports, forecasts, stores & products, data quality) | [`resources/dashboards/`](resources/dashboards) · [`src/dashboards/`](src/dashboards) · generator [`tools/dashboard/build_dashboard.py`](tools/dashboard/build_dashboard.py) |
 | Where to see everything in Databricks | [docs/09_databricks_walkthrough.md](docs/09_databricks_walkthrough.md) |
 
 ## Repository layout
@@ -39,7 +40,8 @@ End-to-end Databricks project built on 21 months of Taco Bueno point-of-sale dat
 ├── databricks.yml                       bundle: variables, dev/prod targets
 ├── resources/
 │   ├── jobs/daily_orchestration_job.yml        ingestion -> pipeline -> quality gate -> ML
-│   └── pipelines/lakeflow_pipeline.yml         serverless Lakeflow pipeline + target schema
+│   ├── pipelines/lakeflow_pipeline.yml         serverless Lakeflow pipeline + target schema
+│   └── dashboards/taco_bueno_dashboard.yml     AI/BI dashboard on the gold and ML tables
 ├── src/
 │   ├── transformations/                 Lakeflow pipeline sources (st_ = streaming table, mv_ = materialized view)
 │   │   ├── bronze/   st_pos_lines_raw.py · st_sports_events_raw.py · mv_store_reference_raw.sql
@@ -57,7 +59,8 @@ End-to-end Databricks project built on 21 months of Taco Bueno point-of-sale dat
 ├── tests/                               unit tests (pytest) + validation/validate_pipeline_vs_eda.sql
 ├── tools/
 │   ├── eda/eda_taco_bueno.py            independent pandas EDA used to reconcile the pipeline
-│   └── analysis/make_charts.py          builds docs/images from the gold and ML tables
+│   ├── analysis/make_charts.py          builds docs/images from the gold and ML tables
+│   └── dashboard/build_dashboard.py     generates src/dashboards/taco_bueno_overview.lvdash.json
 ├── docs/                                the written deliverables and charts
 └── .github/workflows/ci.yml             lint, tests, bundle validation
 ```
@@ -85,6 +88,7 @@ databricks bundle validate -t dev
 databricks bundle deploy -t dev
 databricks bundle run taco_bueno_lakeflow -t dev            # pipeline only
 databricks bundle run daily_orchestration_job -t dev --params force_retrain_segments=true   # everything
+databricks bundle open taco_bueno_overview -t dev          # the dashboard
 
 # Production (file-arrival trigger active)
 databricks bundle deploy -t prod

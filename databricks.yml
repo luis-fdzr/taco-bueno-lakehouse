@@ -28,6 +28,10 @@ variables:
   notification_email:
     description: Recipient of job failure and data-quality alerts.
     default: ${workspace.current_user.userName}
+  warehouse_id:
+    description: SQL warehouse that runs the dashboard queries (looked up by name).
+    lookup:
+      warehouse: Serverless Starter Warehouse
 
 targets:
   dev:

@@ -1,0 +1,11 @@
+# AI/BI dashboard over the gold and ML tables. Generated from
+# tools/dashboard/build_dashboard.py; dataset queries use unqualified table names
+# that resolve to the target's catalog and schema.
+resources:
+  dashboards:
+    taco_bueno_overview:
+      display_name: Taco Bueno - Sales, Sports and Forecasts
+      file_path: ../../src/dashboards/taco_bueno_overview.lvdash.json
+      warehouse_id: ${var.warehouse_id}
+      dataset_catalog: ${var.catalog}
+      dataset_schema: ${resources.schemas.taco_bueno.name}

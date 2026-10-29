@@ -51,7 +51,7 @@ Expectation metrics are written to the pipeline **event log**, which the bundle 
 
 ## Engineering practices
 
-* **Everything as code (Declarative Automation Bundles).** Pipeline, job, schema, variables and targets are in YAML; `databricks bundle validate/deploy` is the only way resources reach the workspace. `dev` (development mode: prefixed names, paused trigger, `development: true` pipeline) and `prod` targets share the same definitions.
+* **Everything as code (Declarative Automation Bundles).** Pipeline, job, schema, dashboard, variables and targets are in YAML (the dashboard's datasets take the target's catalog and schema, so the same definition serves dev and prod); `databricks bundle validate/deploy` is the only way resources reach the workspace. `dev` (development mode: prefixed names, paused trigger, `development: true` pipeline) and `prod` targets share the same definitions.
 * **Raw data is immutable and outside the bundle.** The raw and landing volumes are created once by `setup/00_create_volumes.sql`, not by the bundle, so `bundle destroy` can never delete source data. The pipeline only reads the raw volume.
 * **Schema-on-read in bronze, contracts in silver.** Bronze stores every column as STRING (positional schema across the 19/21/22-column export layouts), so a format change can never break ingestion. Parsing uses `try_cast` / `try_to_timestamp` in silver, and expectations make the failures visible.
 * **Idempotent and re-runnable.** Checkpointed Auto Loader, AUTO CDC, declarative MVs and overwrite-mode ML outputs mean a Repair run or a full refresh gives the same result. See [02_pipeline_job.md](02_pipeline_job.md).
