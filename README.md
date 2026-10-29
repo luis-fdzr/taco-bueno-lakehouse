@@ -31,6 +31,7 @@ End-to-end Databricks project built on 21 months of Taco Bueno point-of-sale dat
 | Analysis and business value | [docs/06_analysis_and_business_value.md](docs/06_analysis_and_business_value.md) |
 | ML models (segmentation, forecasting) | [docs/07_ml_models.md](docs/07_ml_models.md) · [`src/ml/`](src/ml) |
 | Sports-event sources and matching | [docs/08_sports_events.md](docs/08_sports_events.md) · [`src/ingestion/`](src/ingestion) |
+| Where to see everything in Databricks | [docs/09_databricks_walkthrough.md](docs/09_databricks_walkthrough.md) |
 
 ## Repository layout
 
@@ -74,10 +75,10 @@ databricks auth login --host https://<workspace-host> --profile DEFAULT
 # 2. One-time setup: create the raw and landing volumes (SQL editor)
 #    setup/00_create_volumes.sql
 #    then upload the raw exports, unmodified:
-databricks fs cp -r <folder-with-csvs> dbfs:/Volumes/workspace/default/taco-bueno-raw/
+databricks fs cp -r ..\data\raw dbfs:/Volumes/workspace/default/taco-bueno-raw/
 
 # 3. Backfill sports calendars and store locations into the landing volume
-.\setup\01_backfill_landing.ps1 -CityFile ..\city.xlsx
+.\setup\01_backfill_landing.ps1 -CityFile ..\data\reference\city.xlsx
 
 # 4. Deploy and run
 databricks bundle validate -t dev
@@ -97,8 +98,26 @@ pytest -q                     # ingestion unit tests (no network)
 ruff check src/ingestion tests
 ```
 
-After a pipeline update, run [`tests/validation/validate_pipeline_vs_eda.sql`](tests/validation/validate_pipeline_vs_eda.sql) in the SQL editor to reconcile the pipeline with the independent EDA (`tools/eda/eda_taco_bueno.py`).
+After a pipeline update, run [`tests/validation/validate_pipeline_vs_eda.sql`](tests/validation/validate_pipeline_vs_eda.sql) in the SQL editor to reconcile the pipeline with the independent EDA:
 
-## Data handling
+```bash
+python tools/eda/eda_taco_bueno.py --datos ../data/raw --salida ../outputs/eda   # ~3 min, cached per file
+python tools/analysis/make_charts.py --schema taco_bueno                         # refresh docs/images
+```
+
+## Data handling and local layout
 
 The raw exports, the city file and the landed API data are **not** in this repository (`.gitignore`). They live in Unity Catalog volumes; the pipeline never modifies the raw volume. Docs contain aggregated figures only.
+
+Locally, the repository sits next to the data it works with:
+
+```
+<project>/
+├── taco-bueno-lakehouse/   this repository
+├── data/
+│   ├── raw/                597 TB_Daily_TLD_*.csv, unmodified (copy of the raw volume)
+│   ├── reference/          city.xlsx (store -> city, from the business)
+│   └── landing/            local copy of the landing zone (store_locations.csv, sports_events/, _cache/)
+├── outputs/eda/            EDA report, tables and charts (tools/eda output)
+└── archive/                superseded files
+```

@@ -10,10 +10,10 @@ landing folder, which is a Unity Catalog volume in Databricks:
 Examples
     # one-time backfill from a laptop, then upload the folder to the volume
     python src/ingestion/run_ingestion.py --mode backfill --start 2025-01-01 --end 2026-12-31 \
-        --landing ./landing --city-file ../city.xlsx
+        --landing ../data/landing --city-file ../data/reference/city.xlsx
 
     # daily run inside Databricks (job task); defaults to the last 14 days + next 120
-    python src/ingestion/run_ingestion.py --mode incremental --landing /Volumes/workspace/taco_bueno/landing
+    python src/ingestion/run_ingestion.py --mode incremental --landing /Volumes/workspace/default/taco-bueno-landing
 """
 
 from __future__ import annotations

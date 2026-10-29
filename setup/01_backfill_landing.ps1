@@ -1,18 +1,22 @@
 # One-time backfill of the landing volume from a laptop (PowerShell).
 #
 #   1. Geocodes the business city file and downloads two seasons of sports
-#      schedules/results (2025-01-01 .. 2026-12-31) into .\landing
+#      schedules/results (2025-01-01 .. 2026-12-31) into ..\data\landing
 #   2. Uploads them to the landing volume. The raw POS files are uploaded
 #      separately and never modified.
 #
+# Defaults follow the local project layout (the repo sits next to data\):
+#   <project>\data\reference\city.xlsx   business city file
+#   <project>\data\landing\              local copy of the landing zone
+#
 # Usage (from the repo root):
-#   .\setup\01_backfill_landing.ps1 -CityFile ..\city.xlsx -Profile DEFAULT
+#   .\setup\01_backfill_landing.ps1 -CityFile ..\data\reference\city.xlsx -Profile DEFAULT
 
 param(
-  [string]$CityFile = "..\city.xlsx",
+  [string]$CityFile = "..\data\reference\city.xlsx",
   [string]$Start = "2025-01-01",
   [string]$End = "2026-12-31",
-  [string]$Landing = ".\landing",
+  [string]$Landing = "..\data\landing",
   [string]$Volume = "dbfs:/Volumes/workspace/default/taco-bueno-landing",
   [string]$Profile = "DEFAULT"
 )
