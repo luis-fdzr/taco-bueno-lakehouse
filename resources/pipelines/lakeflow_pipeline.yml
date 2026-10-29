@@ -1,0 +1,42 @@
+# Lakeflow Declarative Pipeline: bronze -> silver -> gold for POS sales,
+# store reference data and sports events. Serverless, triggered (batch) mode:
+# the daily orchestration job starts each update.
+resources:
+  schemas:
+    taco_bueno:
+      catalog_name: ${var.catalog}
+      name: ${var.schema}
+      comment: Taco Bueno lakehouse tables (bronze, silver, gold, ML and data quality), managed by the taco_bueno_lakehouse bundle.
+
+  pipelines:
+    taco_bueno_lakeflow:
+      name: taco_bueno_lakeflow
+      catalog: ${var.catalog}
+      schema: ${resources.schemas.taco_bueno.name}
+      serverless: true
+      channel: CURRENT
+      continuous: false
+      root_path: ../../src/transformations
+      libraries:
+        - glob:
+            include: ../../src/transformations/**
+      configuration:
+        taco.raw_volume_path: ${var.raw_volume_path}
+        taco.landing_volume_path: ${var.landing_volume_path}
+        taco.local_radius_km: ${var.local_radius_km}
+        taco.regional_radius_km: ${var.regional_radius_km}
+      # Expectations, row counts and lineage of every update, queryable with SQL.
+      event_log:
+        catalog: ${var.catalog}
+        schema: ${resources.schemas.taco_bueno.name}
+        name: pipeline_event_log
+      notifications:
+        - email_recipients:
+            - ${var.notification_email}
+          alerts:
+            - on-update-failure
+            - on-update-fatal-failure
+            - on-flow-failure
+      tags:
+        project: taco_bueno
+        layer: lakehouse

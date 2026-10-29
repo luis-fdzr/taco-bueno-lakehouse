@@ -1,0 +1,26 @@
+# Business data never goes to git: raw exports, reference files and landed API data
+*.csv
+*.csv.gz
+*.xlsx
+*.xls
+*.jsonl
+landing/
+eda_output/
+
+# Databricks bundle state
+.databricks/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

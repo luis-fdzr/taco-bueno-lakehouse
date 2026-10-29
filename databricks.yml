@@ -1,0 +1,50 @@
+# Taco Bueno lakehouse: Lakeflow pipeline + daily orchestration job + ML.
+# Deploy with the Databricks CLI:  databricks bundle deploy -t dev
+bundle:
+  name: taco_bueno_lakehouse
+
+include:
+  - resources/**/*.yml
+
+variables:
+  catalog:
+    description: Unity Catalog catalog that holds every table of the project.
+    default: workspace
+  schema:
+    description: Schema where the pipeline, ML and quality tasks publish their tables.
+    default: taco_bueno
+  raw_volume_path:
+    description: Volume with the raw daily POS exports (TB_Daily_TLD_*.csv). Read-only for the project.
+    default: /Volumes/workspace/default/taco-bueno-raw
+  landing_volume_path:
+    description: Volume where the ingestion task lands external and reference data (sports events, store locations).
+    default: /Volumes/workspace/default/taco-bueno-landing
+  local_radius_km:
+    description: A game is "local" for a store when its venue is within this distance.
+    default: "50"
+  regional_radius_km:
+    description: A team is "regional" for a store when its home venue is within this distance.
+    default: "320"
+  notification_email:
+    description: Recipient of job failure and data-quality alerts.
+    default: ${workspace.current_user.userName}
+
+targets:
+  dev:
+    # Resources get a "[dev <user>]" prefix (the schema becomes dev_<user>_taco_bueno)
+    # and the file-arrival trigger is paused.
+    mode: development
+    default: true
+    workspace:
+      host: https://dbc-16b88d56-aa06.cloud.databricks.com
+
+  prod:
+    mode: production
+    workspace:
+      host: https://dbc-16b88d56-aa06.cloud.databricks.com
+      root_path: /Workspace/Users/${workspace.current_user.userName}/.bundle/${bundle.name}/${bundle.target}
+    variables:
+      schema: taco_bueno
+    permissions:
+      - user_name: ${workspace.current_user.userName}
+        level: CAN_MANAGE

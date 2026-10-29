@@ -1,0 +1,24 @@
+[project]
+name = "taco-bueno-lakehouse"
+version = "1.0.0"
+description = "Taco Bueno sales lakehouse on Databricks: Lakeflow pipeline, sports-event enrichment, segmentation and demand forecasts."
+requires-python = ">=3.10"
+dependencies = [
+    "requests>=2.31",
+    "openpyxl>=3.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.6",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 130
+target-version = "py310"
+# Notebooks and pipeline sources rely on Databricks globals (spark, dbutils, display).
+extend-exclude = ["src/ml", "src/quality", "src/transformations"]

@@ -1,0 +1,144 @@
+# Daily orchestration: external data -> Lakeflow pipeline -> data-quality gate -> ML.
+#
+# Trigger: file arrival on the raw POS volume (the daily export lands once a day).
+# A schedule works too (see docs/02_pipeline_job.md); a job has one trigger type.
+#
+# Failure handling
+#   * ingest_external_data is fail-soft: an API outage logs a warning and the
+#     sales pipeline still runs on the sports data already landed (run_if: ALL_DONE).
+#   * every task has retries; the pipeline is idempotent (Auto Loader checkpoints,
+#     AUTO CDC, materialized views), so "Repair run" re-executes only failed tasks.
+#   * data_quality_gate fails the run when an error-level check breaks, which stops
+#     the ML tasks from publishing forecasts built on bad data.
+resources:
+  jobs:
+    daily_orchestration_job:
+      name: taco_bueno_daily_orchestration
+      description: >-
+        Refreshes sports calendars, updates the taco_bueno_lakeflow pipeline, gates on data
+        quality, retrains store segments on Mondays (or on demand) and publishes demand forecasts.
+      max_concurrent_runs: 1
+      timeout_seconds: 14400
+      queue:
+        enabled: true
+      trigger:
+        file_arrival:
+          url: ${var.raw_volume_path}/
+          min_time_between_triggers_seconds: 3600
+          wait_after_last_change_seconds: 900
+      email_notifications:
+        on_failure:
+          - ${var.notification_email}
+        on_duration_warning_threshold_exceeded:
+          - ${var.notification_email}
+      health:
+        rules:
+          - metric: RUN_DURATION_SECONDS
+            op: GREATER_THAN
+            value: 7200
+      parameters:
+        - name: catalog
+          default: ${var.catalog}
+        - name: schema
+          default: ${resources.schemas.taco_bueno.name}
+        - name: force_retrain_segments
+          default: "false"
+        - name: forecast_horizon_days
+          default: "95"
+      environments:
+        - environment_key: ingestion_env
+          spec:
+            environment_version: "3"
+            dependencies:
+              - requests>=2.31
+              - openpyxl>=3.1
+      tags:
+        project: taco_bueno
+
+      tasks:
+        - task_key: ingest_external_data
+          description: Sports schedules and results (last 14 days + next 120) into the landing volume.
+          environment_key: ingestion_env
+          spark_python_task:
+            python_file: ../../src/ingestion/run_ingestion.py
+            parameters:
+              - --mode
+              - incremental
+              - --landing
+              - ${var.landing_volume_path}
+              - --fail-on-error
+              - "false"
+          max_retries: 2
+          min_retry_interval_millis: 300000
+          retry_on_timeout: true
+          timeout_seconds: 1800
+
+        - task_key: refresh_lakeflow_pipeline
+          description: Incremental update of bronze, silver and gold tables.
+          depends_on:
+            - task_key: ingest_external_data
+          run_if: ALL_DONE
+          pipeline_task:
+            pipeline_id: ${resources.pipelines.taco_bueno_lakeflow.id}
+            full_refresh: false
+          max_retries: 1
+          min_retry_interval_millis: 600000
+          timeout_seconds: 7200
+
+        - task_key: data_quality_gate
+          description: Error-level checks fail the run; warnings are logged to dq_gate_results.
+          depends_on:
+            - task_key: refresh_lakeflow_pipeline
+          notebook_task:
+            notebook_path: ../../src/quality/data_quality_gate.py
+            base_parameters:
+              catalog: "{{job.parameters.catalog}}"
+              schema: "{{job.parameters.schema}}"
+          timeout_seconds: 1800
+
+        - task_key: is_monday
+          depends_on:
+            - task_key: data_quality_gate
+          condition_task:
+            op: EQUAL_TO
+            left: "{{job.start_time.iso_weekday}}"
+            right: "1"
+
+        - task_key: force_retrain
+          depends_on:
+            - task_key: data_quality_gate
+          condition_task:
+            op: EQUAL_TO
+            left: "{{job.parameters.force_retrain_segments}}"
+            right: "true"
+
+        - task_key: store_segmentation
+          description: K-means store segments and product demand-pattern clusters (weekly).
+          depends_on:
+            - task_key: is_monday
+              outcome: "true"
+            - task_key: force_retrain
+              outcome: "true"
+          run_if: AT_LEAST_ONE_SUCCESS
+          notebook_task:
+            notebook_path: ../../src/ml/01_store_segmentation.py
+            base_parameters:
+              catalog: "{{job.parameters.catalog}}"
+              schema: "{{job.parameters.schema}}"
+          max_retries: 1
+          timeout_seconds: 3600
+
+        - task_key: demand_forecast
+          description: Product, combo and market traffic forecasts plus strong-date calendar (daily).
+          depends_on:
+            - task_key: data_quality_gate
+            - task_key: store_segmentation
+          run_if: NONE_FAILED
+          notebook_task:
+            notebook_path: ../../src/ml/02_demand_forecast.py
+            base_parameters:
+              catalog: "{{job.parameters.catalog}}"
+              schema: "{{job.parameters.schema}}"
+              horizon_days: "{{job.parameters.forecast_horizon_days}}"
+          max_retries: 1
+          timeout_seconds: 3600
