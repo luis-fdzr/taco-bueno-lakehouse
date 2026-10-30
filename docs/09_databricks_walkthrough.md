@@ -27,7 +27,7 @@ It is deployed by the bundle (`resources/dashboards/taco_bueno_dashboard.yml`) a
 ## 1. The code
 
 * **Deployed copy (read-only):** *Workspace > Users > <you> > .bundle > taco_bueno_lakehouse > dev > files*. The pipeline runs the files under `src/transformations`. `src/ml/*.py` and `src/quality/data_quality_gate.py` open as notebooks.
-* **Git folder (browse, edit, pull):** *Workspace > Users > <you> > Create > Git folder*, provider GitHub, URL `https://github.com/luis-fdzr/taco-bueno-lakehouse.git`. The repository is private, so first link GitHub under *Settings > Linked accounts > Add Git credential* (GitHub app, or a personal access token with `repo` scope). From the Git folder you can open every file and notebook, and pull new commits.
+* **Git folder (browse, edit, pull):** *Workspace > Users > <you> > Create > Git folder*, provider GitHub, URL `https://github.com/luis-fdzr/taco-bueno-lakehouse.git`. The repository is public, so cloning and pulling need no Git credential; to commit and push from Databricks, first link GitHub under *Settings > Linked accounts > Add Git credential* (GitHub app, or a personal access token with `repo` scope). From the Git folder you can open every file and notebook, and pull new commits.
 
 ## 2. The pipeline: *Jobs & Pipelines > [dev <user>] taco_bueno_lakeflow*
 
