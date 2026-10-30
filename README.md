@@ -71,8 +71,10 @@ The requested template (`silver/st_orders_cleaned.py`, `silver/mv_customer_summa
 
 Requirements: Databricks CLI v1.20+ (Declarative Automation Bundles; tested with 1.20.0), a Unity Catalog workspace with serverless compute (Free Edition works), Python 3.10+ for local tools.
 
+`databricks.yml` sets no workspace host: the bundle deploys to the workspace of the CLI profile you log in with, so the commands below reproduce the project in any workspace without editing a file.
+
 ```powershell
-# 1. Authenticate the CLI (opens the browser)
+# 1. Authenticate the CLI (opens the browser); the bundle deploys to this workspace
 databricks auth login --host https://<workspace-host> --profile DEFAULT
 
 # 2. One-time setup: create the raw and landing volumes (SQL editor)

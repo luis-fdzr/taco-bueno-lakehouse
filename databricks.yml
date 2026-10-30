@@ -33,19 +33,18 @@ variables:
     lookup:
       warehouse: Serverless Starter Warehouse
 
+# No workspace.host: every target deploys to the workspace of the CLI profile in use
+# (databricks auth login --host <workspace-url>), so anyone can reproduce the project.
 targets:
   dev:
     # Resources get a "[dev <user>]" prefix (the schema becomes dev_<user>_taco_bueno)
     # and the file-arrival trigger is paused.
     mode: development
     default: true
-    workspace:
-      host: https://dbc-16b88d56-aa06.cloud.databricks.com
 
   prod:
     mode: production
     workspace:
-      host: https://dbc-16b88d56-aa06.cloud.databricks.com
       root_path: /Workspace/Users/${workspace.current_user.userName}/.bundle/${bundle.name}/${bundle.target}
     variables:
       schema: taco_bueno
