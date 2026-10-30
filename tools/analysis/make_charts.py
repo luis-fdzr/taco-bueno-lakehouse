@@ -1,9 +1,10 @@
 """Builds the charts in docs/images from the gold and ML tables.
 
 Queries run on a Databricks SQL warehouse through the Statement Execution API,
-authenticated with the CLI profile (`databricks auth token`).
+authenticated with the CLI profile (`databricks auth token`). The workspace is the
+profile's host and the warehouse is looked up by name, as in the bundle.
 
-    python tools/analysis/make_charts.py --schema taco_bueno --warehouse <id>
+    python tools/analysis/make_charts.py --schema taco_bueno
 """
 
 from __future__ import annotations
@@ -218,7 +219,10 @@ def chart_backtest(sql: Sql, out: Path):
                   JOIN (SELECT business_date, market, count(*) stores FROM mv_daily_store_sales GROUP BY ALL) s
                     ON s.business_date = b.date AND s.market = b.series_key
                   WHERE b.series_type = 'tickets_per_store' GROUP BY b.date ORDER BY b.date""")
-    wape = lambda a, f: (a - f).abs().sum() / a.sum()
+
+    def wape(a, f):
+        return (a - f).abs().sum() / a.sum()
+
     fig, ax = plt.subplots(figsize=(11, 3.8))
     ax.plot(b.date, b.actual, color=INK, lw=1.6, label="Actual")
     ax.plot(b.date, b.forecast, color=S1, label=f"Model (WAPE {wape(b.actual, b.forecast):.1%})")
@@ -291,19 +295,30 @@ def chart_product_forecasts(sql: Sql, out: Path):
     save(fig, out, "product_forecasts.png")
 
 
+def cli_json(*args: str):
+    return json.loads(subprocess.run(["databricks", *args, "-o", "json"], capture_output=True, text=True,
+                                     check=True).stdout)
+
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--host", default="https://dbc-16b88d56-aa06.cloud.databricks.com")
-    ap.add_argument("--warehouse", default="75e173ab9c89a73f")
+    ap.add_argument("--host", help="Workspace URL (default: host of the CLI profile).")
+    ap.add_argument("--warehouse", help="SQL warehouse id (default: the warehouse named --warehouse-name).")
+    ap.add_argument("--warehouse-name", default="Serverless Starter Warehouse")
     ap.add_argument("--catalog", default="workspace")
     ap.add_argument("--schema", default="taco_bueno")
     ap.add_argument("--profile", default="DEFAULT")
     ap.add_argument("--out", default=str(Path(__file__).resolve().parents[2] / "docs" / "images"))
     args = ap.parse_args()
+    host = args.host or cli_json("auth", "describe", "-p", args.profile)["details"]["host"]
+    warehouse = args.warehouse or next(
+        (w["id"] for w in cli_json("warehouses", "list", "-p", args.profile) if w["name"] == args.warehouse_name), None)
+    if not warehouse:
+        raise SystemExit(f"No SQL warehouse named {args.warehouse_name!r}; pass --warehouse <id>.")
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     style()
-    sql = Sql(args.host, args.warehouse, args.catalog, args.schema, args.profile)
+    sql = Sql(host, warehouse, args.catalog, args.schema, args.profile)
     for fn in [chart_kpi_yoy, chart_weekday_daypart, chart_market_channels, chart_holiday_lift, chart_event_lift,
                chart_price_waves, chart_backtest, chart_strong_dates, chart_segments, chart_product_forecasts]:
         fn(sql, out)
