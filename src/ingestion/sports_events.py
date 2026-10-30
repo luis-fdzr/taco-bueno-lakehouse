@@ -277,7 +277,10 @@ def parse_nhl_game(g: dict, league: League) -> dict:
     state_txt = g.get("gameState")
     completed = state_txt in ("OFF", "FINAL")
     hs, as_ = home.get("score"), away.get("score")
-    name = lambda t: f"{(t.get('placeName') or {}).get('default', '')} {(t.get('commonName') or {}).get('default', '')}".strip()
+
+    def name(t: dict) -> str:
+        return f"{(t.get('placeName') or {}).get('default', '')} {(t.get('commonName') or {}).get('default', '')}".strip()
+
     national = [b.get("network") for b in g.get("tvBroadcasts", []) if b.get("market") == "N"]
     return {
         "event_id": f"nhl:{g['id']}",
