@@ -69,11 +69,22 @@ The requested template (`silver/st_orders_cleaned.py`, `silver/mv_customer_summa
 
 ## Run it
 
-Requirements: Databricks CLI v1.20+ (Declarative Automation Bundles; tested with 1.20.0), a Unity Catalog workspace with serverless compute (Free Edition works), Python 3.10+ for local tools.
+Requirements:
+
+* **Databricks CLI v1.20+** (Declarative Automation Bundles; tested with 1.20.0). Windows: `winget install Databricks.DatabricksCLI`; macOS: `brew tap databricks/tap && brew install databricks`.
+* **A Unity Catalog workspace with serverless compute.** Free Edition works as is; other workspaces need the settings in [Other workspaces](#other-workspaces).
+* **Python 3.10+.**
+* **The data, which is not in this repository:** the 597 raw exports (`TB_Daily_TLD_MM-DD-YYYY-m.csv`, unmodified) and the business city file (`city.xlsx`, or a `.csv` with columns `Store #` and `City`), placed as in [Data handling and local layout](#data-handling-and-local-layout).
 
 `databricks.yml` sets no workspace host: the bundle deploys to the workspace of the CLI profile you log in with, so the commands below reproduce the project in any workspace without editing a file.
 
+On Windows (PowerShell), starting in the folder that holds `data/`:
+
 ```powershell
+# 0. Clone next to the data folder
+git clone https://github.com/luis-fdzr/taco-bueno-lakehouse.git
+cd taco-bueno-lakehouse
+
 # 1. Authenticate the CLI (opens the browser); the bundle deploys to this workspace
 databricks auth login --host https://<workspace-host> --profile DEFAULT
 
@@ -83,31 +94,66 @@ databricks auth login --host https://<workspace-host> --profile DEFAULT
 databricks fs cp -r ..\data\raw dbfs:/Volumes/workspace/default/taco-bueno-raw/
 
 # 3. Backfill sports calendars and store locations into the landing volume
-.\setup\01_backfill_landing.ps1 -CityFile ..\data\reference\city.xlsx
+#    (-ExecutionPolicy Bypass lets the script run on a default Windows setup; pass your city file to -CityFile)
+python -m pip install -e .
+powershell -ExecutionPolicy Bypass -File .\setup\01_backfill_landing.ps1 -CityFile ..\data\reference\city.xlsx
 
 # 4. Deploy and run
 databricks bundle validate -t dev
 databricks bundle deploy -t dev
-databricks bundle run taco_bueno_lakeflow -t dev            # pipeline only
-databricks bundle run daily_orchestration_job -t dev --params force_retrain_segments=true   # everything
+databricks bundle run taco_bueno_lakeflow -t dev            # pipeline only (10-20 min the first time)
+databricks bundle run daily_orchestration_job -t dev --params force_retrain_segments=true   # everything (15-25 min)
 databricks bundle open taco_bueno_overview -t dev          # the dashboard
 
 # Production (file-arrival trigger active)
 databricks bundle deploy -t prod
 ```
 
-Local checks:
+On macOS or Linux, steps 0, 1 and 4 are the same. Steps 2 and 3 become (step 3 runs what the PowerShell script wraps):
+
+```bash
+databricks fs cp -r ../data/raw dbfs:/Volumes/workspace/default/taco-bueno-raw/
+
+python3 -m venv .venv && source .venv/bin/activate && pip install -e .
+python src/ingestion/run_ingestion.py --mode backfill --start 2025-01-01 --end 2026-12-31 \
+  --landing ../data/landing --city-file ../data/reference/city.xlsx
+V=dbfs:/Volumes/workspace/default/taco-bueno-landing
+databricks fs mkdir $V/reference/raw
+databricks fs cp ../data/reference/city.xlsx $V/reference/raw/city.xlsx --overwrite
+databricks fs cp -r ../data/landing/reference/store_locations $V/reference/store_locations --overwrite
+databricks fs cp -r ../data/landing/sports_events $V/sports_events
+databricks fs mkdir $V/_cache
+databricks fs cp ../data/landing/_cache/geocode.json $V/_cache/geocode.json --overwrite
+```
+
+### Check the result
+
+* Run [`tests/validation/validate_pipeline_vs_eda.sql`](tests/validation/validate_pipeline_vs_eda.sql) in the SQL editor: every row should say `MATCH`. It only checks sales data (files, rows, coverage, tickets, money, months), so the same raw files give the same numbers.
+* The SQL files point to the production schema. In `dev`, replace their `USE CATALOG` and `USE SCHEMA` lines with `USE workspace.dev_<user>_taco_bueno;` (`databricks bundle summary -t dev` prints the schema). The same applies to [`src/analysis/business_insights.sql`](src/analysis/business_insights.sql).
+* Sports schedules come from live APIs, so a new backfill returns a slightly different set of games than the documented 25,546 (rescheduled games, newly published schedules). The sports-related figures (event impact, forecasts, strong dates) can then differ a little from the docs; sales figures do not.
+
+### Other workspaces
+
+Free Edition provides the `workspace` catalog and the `Serverless Starter Warehouse`. In any other workspace:
+
+1. In `setup/00_create_volumes.sql`, replace `workspace.default` with a catalog and schema where you can create volumes and schemas. Use the same path in the upload command and pass it to the backfill script (`-Volume dbfs:/Volumes/<catalog>/<schema>/taco-bueno-landing`).
+2. Set the bundle variables before the bundle commands (PowerShell shown; in bash, `export BUNDLE_VAR_catalog=...`):
+
+```powershell
+$env:BUNDLE_VAR_catalog = "<catalog>"
+$env:BUNDLE_VAR_raw_volume_path = "/Volumes/<catalog>/<schema>/taco-bueno-raw"
+$env:BUNDLE_VAR_landing_volume_path = "/Volumes/<catalog>/<schema>/taco-bueno-landing"
+$env:BUNDLE_VAR_warehouse_id = "<warehouse id>"   # from: databricks warehouses list
+```
+
+### Local checks and tools
 
 ```bash
 pip install -e ".[dev]"
 pytest -q                     # ingestion unit tests (no network)
 ruff check src/ingestion tests
-```
-
-After a pipeline update, run [`tests/validation/validate_pipeline_vs_eda.sql`](tests/validation/validate_pipeline_vs_eda.sql) in the SQL editor to reconcile the pipeline with the independent EDA:
-
-```bash
-python tools/eda/eda_taco_bueno.py --datos ../data/raw --salida ../outputs/eda   # ~3 min, cached per file
+# The two tools below also need pandas, numpy and matplotlib
+python tools/eda/eda_taco_bueno.py --datos ../data/raw --salida ../outputs/eda   # independent pandas EDA (~3 min, cached per file)
 python tools/analysis/make_charts.py --schema taco_bueno                         # refresh docs/images
 ```
 
@@ -122,7 +168,7 @@ Locally, the repository sits next to the data it works with:
 ├── taco-bueno-lakehouse/   this repository
 ├── data/
 │   ├── raw/                597 TB_Daily_TLD_*.csv, unmodified (copy of the raw volume)
-│   ├── reference/          city.xlsx (store -> city, from the business)
+│   ├── reference/          city.xlsx or city.csv (store -> city, from the business)
 │   └── landing/            local copy of the landing zone (store_locations.csv, sports_events/, _cache/)
 ├── outputs/eda/            EDA report, tables and charts (tools/eda output)
 └── archive/                superseded files

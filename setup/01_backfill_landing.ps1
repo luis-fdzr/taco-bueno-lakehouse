@@ -6,11 +6,13 @@
 #      separately and never modified.
 #
 # Defaults follow the local project layout (the repo sits next to data\):
-#   <project>\data\reference\city.xlsx   business city file
+#   <project>\data\reference\city.xlsx   business city file (.xlsx, or .csv with columns Store # and City)
 #   <project>\data\landing\              local copy of the landing zone
 #
-# Usage (from the repo root):
-#   .\setup\01_backfill_landing.ps1 -CityFile ..\data\reference\city.xlsx -Profile DEFAULT
+# Needs the project's Python dependencies: python -m pip install -e .
+#
+# Usage (from the repo root; -ExecutionPolicy Bypass lets it run on a default Windows setup):
+#   powershell -ExecutionPolicy Bypass -File .\setup\01_backfill_landing.ps1 -CityFile ..\data\reference\city.xlsx -Profile DEFAULT
 
 param(
   [string]$CityFile = "..\data\reference\city.xlsx",
@@ -25,7 +27,7 @@ python src/ingestion/run_ingestion.py --mode backfill --start $Start --end $End 
 if ($LASTEXITCODE -ne 0) { throw "Ingestion failed" }
 
 databricks fs mkdir "$Volume/reference/raw" --profile $Profile
-databricks fs cp $CityFile "$Volume/reference/raw/city.xlsx" --overwrite --profile $Profile
+databricks fs cp $CityFile "$Volume/reference/raw/$(Split-Path $CityFile -Leaf)" --overwrite --profile $Profile
 databricks fs cp -r "$Landing/reference/store_locations" "$Volume/reference/store_locations" --overwrite --profile $Profile
 databricks fs cp -r "$Landing/sports_events" "$Volume/sports_events" --profile $Profile
 databricks fs mkdir "$Volume/_cache" --profile $Profile
